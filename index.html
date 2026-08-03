@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FOM Staff Allowance & Discount Portal</title>
+<style>
+  :root{
+    --ink:#1c1c1c; --grey:#8a8a8a; --panel:#f5f5f5; --line:#e5e5e5; --good:#2e7d32; --bad:#c0392b;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:Helvetica,Arial,sans-serif;color:var(--ink);background:#fff;margin:0;}
+  header{background:var(--ink);color:#fff;padding:18px 24px;display:flex;align-items:center;justify-content:space-between;}
+  header .brand{font-size:13px;letter-spacing:3px;text-transform:uppercase;font-weight:bold;}
+  header nav{display:flex;gap:4px;}
+  header nav button{background:transparent;border:1px solid #555;color:#ccc;padding:8px 16px;font-size:12px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:2px;}
+  header nav button.active{background:#fff;color:var(--ink);border-color:#fff;}
+  main{max-width:720px;margin:0 auto;padding:28px 20px 80px;}
+  .view{display:none;}
+  .view.active{display:block;}
+  label{display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--grey);margin-bottom:6px;}
+  select,input[type=text],input[type=number],input[type=file],input[type=password]{
+    width:100%;padding:11px 12px;font-size:14px;border:1px solid #ccc;border-radius:3px;font-family:inherit;background:#fff;color:var(--ink);
+  }
+  .field{margin-bottom:18px;}
+  .balance-card{background:var(--panel);border-radius:4px;padding:18px 20px;margin-bottom:24px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+  .balance-card div{flex:1;min-width:110px;}
+  .balance-card .label{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--grey);margin-bottom:4px;}
+  .balance-card .value{font-size:20px;font-weight:bold;}
+  .balance-card .value.low{color:var(--bad);}
+  .results{border:1px solid var(--line);border-radius:4px;max-height:360px;overflow:auto;margin-bottom:20px;}
+  .result-row{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer;gap:10px;}
+  .result-row:last-child{border-bottom:none;}
+  .result-row:hover{background:var(--panel);}
+  .result-row .name{font-weight:bold;font-size:13px;}
+  .result-row .meta{font-size:11px;color:var(--grey);margin-top:2px;}
+  .result-row .rsp{font-weight:bold;white-space:nowrap;}
+  .result-row.out .rsp{color:var(--bad);}
+  .empty{padding:20px;color:var(--grey);font-size:13px;text-align:center;}
+  .order-panel{background:var(--panel);border-radius:4px;padding:20px;margin-top:8px;}
+  .order-panel h3{margin:0 0 4px;font-size:16px;}
+  .order-panel .sub{font-size:12px;color:var(--grey);margin-bottom:16px;}
+  .type-toggle{display:flex;gap:8px;margin-bottom:18px;}
+  .type-toggle button{flex:1;padding:12px;border:1px solid #ccc;background:#fff;border-radius:3px;cursor:pointer;font-size:13px;font-family:inherit;}
+  .type-toggle button.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .amount-row{display:flex;justify-content:space-between;font-size:14px;padding:6px 0;}
+  .amount-row.total{font-weight:bold;border-top:1px solid var(--line);margin-top:8px;padding-top:12px;}
+  button.primary{background:var(--ink);color:#fff;border:none;padding:14px;width:100%;border-radius:3px;font-size:13px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-top:16px;}
+  button.primary:disabled{opacity:.4;cursor:not-allowed;}
+  button.secondary{background:#fff;border:1px solid #ccc;padding:10px 16px;border-radius:3px;font-size:12px;cursor:pointer;font-family:inherit;}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:14px 22px;border-radius:4px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:50;max-width:90%;text-align:center;}
+  .toast.show{opacity:1;}
+  .toast.err{background:var(--bad);}
+  h2{font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--grey);margin:0 0 16px;}
+  table.admin{width:100%;border-collapse:collapse;font-size:13px;}
+  table.admin th,table.admin td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);}
+  table.admin th{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--grey);}
+  .admin-section{margin-bottom:40px;padding-bottom:32px;border-bottom:1px solid var(--line);}
+  .admin-section:last-child{border-bottom:none;}
+  .row-flex{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
+  .row-flex .field{flex:1;min-width:140px;margin-bottom:0;}
+  .lock{max-width:320px;margin:80px auto;text-align:center;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">FOM Staff Allowance</div>
+  <nav>
+    <button id="navOrder" class="active" onclick="showView('order')">Order</button>
+    <button id="navAdmin" onclick="showView('admin')">Admin</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ORDER VIEW -->
+  <div id="view-order" class="view active">
+    <div class="field">
+      <label>Staff Member</label>
+      <select id="staffSelect" onchange="onStaffChange()">
+        <option value="">Select your name...</option>
+      </select>
+    </div>
+
+    <div id="balanceCard" class="balance-card" style="display:none">
+      <div><div class="label">Annual Allowance</div><div class="value" id="balAllowance">R0</div></div>
+      <div><div class="label">Balance Remaining</div><div class="value" id="balBalance">R0</div></div>
+      <div><div class="label">Period</div><div class="value" id="balPeriod">-</div></div>
+    </div>
+
+    <div class="field">
+      <label>Search Products</label>
+      <input type="text" id="productSearch" placeholder="e.g. Corduroy Overshirt, Tekkie, Vellies..." oninput="onSearch()" disabled>
+    </div>
+
+    <div id="results" class="results" style="display:none"></div>
+
+    <div id="orderPanel"></div>
+  </div>
+
+  <!-- ADMIN VIEW -->
+  <div id="view-admin" class="view">
+    <div id="adminLock" class="lock">
+      <label>Admin Password</label>
+      <input type="password" id="adminPw">
+      <button class="primary" onclick="tryAdminUnlock()">Unlock</button>
+    </div>
+
+    <div id="adminBody" style="display:none">
+
+      <div class="admin-section">
+        <h2>Import Daily Stock Report</h2>
+        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Upload the "Inventory Products Stock Level Report" export (.xlsx/.csv). Matches by SKU and updates stock/RSP for existing products; new SKUs are added.</p>
+        <input type="file" id="stockFile" accept=".xlsx,.xls,.csv">
+        <button class="secondary" style="margin-top:10px" onclick="importStockFile()">Import</button>
+        <div id="importStatus" style="font-size:13px;margin-top:10px;color:var(--grey)"></div>
+      </div>
+
+      <div class="admin-section">
+        <h2>Staff Allowance Periods</h2>
+        <div class="row-flex" style="margin-bottom:14px">
+          <div class="field"><label>New Period Label (e.g. 2027)</label><input type="text" id="newPeriod"></div>
+          <button class="secondary" onclick="startNewPeriod()">Reset All Balances For New Period</button>
+        </div>
+        <table class="admin" id="staffTable"><thead><tr><th>Name</th><th>Period</th><th>Allowance</th><th>Balance</th></tr></thead><tbody></tbody></table>
+      </div>
+
+      <div class="admin-section">
+        <h2>Staff Discount Report (for ERP Invoicing)</h2>
+        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Shows RSP and the {{DISCOUNT_PCT}}% discount amount for every staff-discount order, so it can be invoiced against stock in the ERP.</p>
+        <button class="secondary" onclick="loadDiscountReport()">Refresh Report</button>
+        <button class="secondary" onclick="exportDiscountReportCsv()">Export CSV</button>
+        <table class="admin" id="discountTable" style="margin-top:14px">
+          <thead><tr><th>Date</th><th>Staff</th><th>Product</th><th>Qty</th><th>RSP</th><th>Discount</th><th>Payable</th><th>Invoiced</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div id="discountTotals" style="margin-top:10px;font-size:13px;font-weight:bold"></div>
+      </div>
+
+    </div>
+  </div>
+
+</main>
+
+<div id="toast" class="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="config.js"></script>
+<script>
+document.title = document.title; // no-op, keeps head tidy
+</script>
+<script>
+const SBH = {'apikey':CONFIG.SB_KEY,'Authorization':'Bearer '+CONFIG.SB_KEY,'Content-Type':'application/json'};
+
+async function sb(method, path, body, headers){
+  const r = await fetch(CONFIG.SB_URL+'/rest/v1/'+path, {
+    method, headers: Object.assign({}, SBH, headers||{}), body: body ? JSON.stringify(body) : undefined
+  });
+  if(!r.ok){ const t = await r.text(); throw new Error(t); }
+  const ct = r.headers.get('content-type')||'';
+  if(ct.includes('json')) return r.json();
+  return [];
+}
+
+async function sbAll(path){
+  let all = []; let from = 0; const pageSize = 1000;
+  while(true){
+    const r = await fetch(CONFIG.SB_URL+'/rest/v1/'+path, {
+      headers: Object.assign({}, SBH, {'Range-Unit':'items','Range':from+'-'+(from+pageSize-1)})
+    });
+    if(!r.ok) throw new Error(await r.text());
+    const page = await r.json();
+    all = all.concat(page);
+    if(page.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
+}
+
+function toast(msg, isErr){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show'+(isErr?' err':'');
+  setTimeout(()=>t.className='toast', 3200);
+}
+
+function money(n){ return Number(n||0).toLocaleString('en-ZA', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+
+function showView(name){
+  document.getElementById('view-order').classList.toggle('active', name==='order');
+  document.getElementById('view-admin').classList.toggle('active', name==='admin');
+  document.getElementById('navOrder').classList.toggle('active', name==='order');
+  document.getElementById('navAdmin').classList.toggle('active', name==='admin');
+  if(name==='admin' && sessionStorage.getItem('fomAdmin')==='1') showAdminBody();
+}
+
+// ---------------- ORDER VIEW ----------------
+let STAFF = [];
+let PRODUCTS = [];
+let selectedStaff = null;
+let selectedProduct = null;
+let orderType = 'allowance';
+
+async function initOrderView(){
+  try{
+    STAFF = await sb('GET','staff?select=*&order=name.asc');
+    const sel = document.getElementById('staffSelect');
+    STAFF.forEach(s=>{
+      const o = document.createElement('option'); o.value = s.name; o.textContent = s.name;
+      sel.appendChild(o);
+    });
+  }catch(e){ console.error(e); toast('Could not load staff list', true); }
+
+  try{
+    PRODUCTS = await sbAll('products?select=*&order=product.asc');
+    document.getElementById('productSearch').disabled = false;
+  }catch(e){ console.error(e); toast('Could not load product catalog', true); }
+}
+
+function onStaffChange(){
+  const name = document.getElementById('staffSelect').value;
+  selectedStaff = STAFF.find(s=>s.name===name) || null;
+  const card = document.getElementById('balanceCard');
+  if(!selectedStaff){ card.style.display='none'; return; }
+  card.style.display = 'flex';
+  document.getElementById('balAllowance').textContent = 'R'+money(selectedStaff.allowance);
+  const balEl = document.getElementById('balBalance');
+  balEl.textContent = 'R'+money(selectedStaff.balance);
+  balEl.className = 'value'+(selectedStaff.balance <= 0 ? ' low' : '');
+  document.getElementById('balPeriod').textContent = selectedStaff.period;
+  document.getElementById('orderPanel').innerHTML = '';
+  selectedProduct = null;
+}
+
+function onSearch(){
+  const q = document.getElementById('productSearch').value.trim().toLowerCase();
+  const results = document.getElementById('results');
+  if(q.length < 2){ results.style.display='none'; results.innerHTML=''; return; }
+  const matches = PRODUCTS.filter(p => p.product.toLowerCase().includes(q) || (p.sku||'').toLowerCase().includes(q)).slice(0,100);
+  results.style.display='block';
+  if(!matches.length){ results.innerHTML = '<div class="empty">No products match "'+escapeHtml(q)+'"</div>'; return; }
+  results.innerHTML = matches.map(p => {
+    const out = Number(p.available) <= 0;
+    return '<div class="result-row'+(out?' out':'')+'" onclick="selectProduct(\''+p.sku.replace(/'/g,"\\'")+'\')">'+
+      '<div><div class="name">'+escapeHtml(p.product)+'</div>'+
+      '<div class="meta">SKU '+escapeHtml(p.sku)+' &middot; '+escapeHtml(p.category||'')+' &middot; '+(out?'Out of stock':Math.floor(p.available)+' available')+'</div></div>'+
+      '<div class="rsp">R'+money(p.rsp)+'</div></div>';
+  }).join('');
+}
+
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function selectProduct(sku){
+  if(!selectedStaff){ toast('Select your name first', true); return; }
+  selectedProduct = PRODUCTS.find(p=>p.sku===sku);
+  if(!selectedProduct) return;
+  orderType = 'allowance';
+  renderOrderPanel();
+}
+
+function renderOrderPanel(){
+  const p = selectedProduct;
+  document.getElementById('orderPanel').innerHTML =
+    '<div class="order-panel">'+
+      '<h3>'+escapeHtml(p.product)+'</h3>'+
+      '<div class="sub">SKU '+escapeHtml(p.sku)+' &middot; RSP R'+money(p.rsp)+'</div>'+
+      '<div class="field"><label>Quantity</label><input type="number" id="orderQty" min="1" value="1" oninput="renderAmounts()"></div>'+
+      '<div class="type-toggle">'+
+        '<button id="typeAllowance" class="active" onclick="setOrderType(\'allowance\')">Staff Allowance</button>'+
+        '<button id="typeDiscount" onclick="setOrderType(\'discount\')">Staff Discount ('+Math.round(CONFIG.DISCOUNT_RATE*100)+'%)</button>'+
+      '</div>'+
+      '<div id="amounts"></div>'+
+      '<button class="primary" id="submitBtn" onclick="submitOrder()">Confirm Order</button>'+
+    '</div>';
+  renderAmounts();
+}
+
+function setOrderType(t){
+  orderType = t;
+  document.getElementById('typeAllowance').classList.toggle('active', t==='allowance');
+  document.getElementById('typeDiscount').classList.toggle('active', t==='discount');
+  renderAmounts();
+}
+
+function currentAmount(){
+  const qty = Math.max(1, parseInt(document.getElementById('orderQty').value)||1);
+  const rsp = Number(selectedProduct.rsp);
+  if(orderType === 'allowance') return {qty, amount: rsp*qty, label:'Deducted from allowance'};
+  const payable = rsp*qty*(1-CONFIG.DISCOUNT_RATE);
+  return {qty, amount: payable, label:'Payable by staff member'};
+}
+
+function renderAmounts(){
+  if(!selectedProduct) return;
+  const {qty, amount, label} = currentAmount();
+  let html = '<div class="amount-row"><span>RSP x '+qty+'</span><span>R'+money(selectedProduct.rsp*qty)+'</span></div>';
+  if(orderType==='discount'){
+    html += '<div class="amount-row"><span>Staff Discount ('+Math.round(CONFIG.DISCOUNT_RATE*100)+'%)</span><span>-R'+money(selectedProduct.rsp*qty*CONFIG.DISCOUNT_RATE)+'</span></div>';
+  }
+  html += '<div class="amount-row total"><span>'+label+'</span><span>R'+money(amount)+'</span></div>';
+  if(orderType==='allowance' && selectedStaff && amount > selectedStaff.balance){
+    html += '<div class="amount-row" style="color:var(--bad)"><span>Insufficient balance</span><span>R'+money(selectedStaff.balance)+' available</span></div>';
+  }
+  document.getElementById('amounts').innerHTML = html;
+}
+
+async function submitOrder(){
+  if(!selectedStaff || !selectedProduct) return;
+  const {qty, amount} = currentAmount();
+  if(orderType === 'allowance' && amount > selectedStaff.balance){
+    toast('Insufficient allowance balance for this order', true); return;
+  }
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true; btn.textContent = 'Placing order...';
+
+  const balanceBefore = selectedStaff.balance;
+  const balanceAfter = orderType === 'allowance' ? (balanceBefore - amount) : balanceBefore;
+
+  try{
+    if(orderType === 'allowance'){
+      await sb('PATCH','staff?name=eq.'+encodeURIComponent(selectedStaff.name), {balance: balanceAfter});
+      selectedStaff.balance = balanceAfter;
+    }
+
+    await sb('POST','orders', {
+      staff_name: selectedStaff.name, sku: selectedProduct.sku, product: selectedProduct.product,
+      qty, order_type: orderType, rsp: selectedProduct.rsp, amount, period: selectedStaff.period
+    }, {'Prefer':'return=minimal'});
+
+    const orderDate = new Date().toLocaleDateString('en-ZA', {year:'numeric',month:'long',day:'numeric'});
+    const toList = [CONFIG.MANAGER_EMAIL, CONFIG.WAREHOUSE_EMAIL].filter((v,i,a)=>v && a.indexOf(v)===i).join(', ');
+
+    if(CONFIG.EMAILJS_PUBLIC_KEY){
+      await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID, {
+        to_email: toList, staff_name: selectedStaff.name, order_date: orderDate,
+        product: selectedProduct.product, sku: selectedProduct.sku, qty,
+        order_type: orderType === 'allowance' ? 'Staff Allowance' : 'Staff Discount (40%)',
+        rsp: money(selectedProduct.rsp), amount: money(amount),
+        balance_before: money(balanceBefore), balance_after: money(balanceAfter)
+      }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
+    }
+
+    onStaffChange(); // refresh balance card from selectedStaff
+    document.getElementById('staffSelect').value = selectedStaff.name;
+    document.getElementById('orderPanel').innerHTML = '';
+    document.getElementById('productSearch').value = '';
+    document.getElementById('results').style.display = 'none';
+    toast('Order confirmed — confirmation email sent. Dankie! Thank you! Danke! Shukran!');
+  }catch(e){
+    console.error(e);
+    toast('Something went wrong placing the order', true);
+    btn.disabled = false; btn.textContent = 'Confirm Order';
+  }
+}
+
+// ---------------- ADMIN VIEW ----------------
+function tryAdminUnlock(){
+  if(document.getElementById('adminPw').value === CONFIG.ADMIN_PASSWORD){
+    sessionStorage.setItem('fomAdmin','1');
+    showAdminBody();
+  } else {
+    toast('Incorrect password', true);
+  }
+}
+
+function showAdminBody(){
+  document.getElementById('adminLock').style.display = 'none';
+  document.getElementById('adminBody').style.display = 'block';
+  loadStaffTable();
+  loadDiscountReport();
+}
+
+async function loadStaffTable(){
+  const rows = await sb('GET','staff?select=*&order=name.asc');
+  const tbody = document.querySelector('#staffTable tbody');
+  tbody.innerHTML = rows.map(s=>
+    '<tr><td>'+escapeHtml(s.name)+'</td><td>'+escapeHtml(s.period)+'</td><td>R'+money(s.allowance)+'</td><td>R'+money(s.balance)+'</td></tr>'
+  ).join('');
+}
+
+async function startNewPeriod(){
+  const period = document.getElementById('newPeriod').value.trim();
+  if(!period){ toast('Enter a period label first', true); return; }
+  if(!confirm('Reset every staff member\'s balance back to their full allowance for period "'+period+'"? This cannot be undone.')) return;
+  const rows = await sb('GET','staff?select=name,allowance');
+  for(const s of rows){
+    await sb('PATCH','staff?name=eq.'+encodeURIComponent(s.name), {balance: s.allowance, period});
+  }
+  toast('Balances reset for period '+period);
+  loadStaffTable();
+}
+
+async function importStockFile(){
+  const input = document.getElementById('stockFile');
+  const status = document.getElementById('importStatus');
+  if(!input.files.length){ toast('Choose a file first', true); return; }
+  status.textContent = 'Reading file...';
+  const file = input.files[0];
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, {type:'array'});
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1});
+
+  // find header row (first row containing "SKU")
+  let headerIdx = rows.findIndex(r => r.some(c => String(c).trim().toLowerCase()==='sku'));
+  if(headerIdx === -1){ status.textContent = 'Could not find an "SKU" column in this file.'; return; }
+  const header = rows[headerIdx].map(h => String(h).trim().toLowerCase());
+  const skuCol = header.indexOf('sku');
+  const productCol = header.indexOf('product');
+  const availCol = header.indexOf('available') >= 0 ? header.indexOf('available') : header.indexOf('stock on hand');
+
+  const existingBySku = {};
+  PRODUCTS.forEach(p => existingBySku[p.sku] = p);
+
+  const updates = [];
+  for(let i=headerIdx+1;i<rows.length;i++){
+    const r = rows[i];
+    const sku = r[skuCol] ? String(r[skuCol]).trim() : '';
+    if(!sku) continue;
+    const existing = existingBySku[sku];
+    const available = availCol >= 0 ? Number(r[availCol])||0 : (existing? existing.available : 0);
+    updates.push({
+      sku, product: (r[productCol]||(existing?existing.product:'')), category: existing?existing.category:null,
+      subcat: existing?existing.subcat:null, rsp: existing? existing.rsp : 0, available, updated_at: new Date().toISOString()
+    });
+  }
+
+  status.textContent = 'Updating '+updates.length+' products...';
+  const batchSize = 500;
+  for(let i=0;i<updates.length;i+=batchSize){
+    const batch = updates.slice(i,i+batchSize);
+    await sb('POST','products', batch, {'Prefer':'resolution=merge-duplicates,return=minimal'});
+    status.textContent = 'Updated '+Math.min(i+batchSize,updates.length)+' / '+updates.length+' products...';
+  }
+  status.textContent = 'Done — '+updates.length+' products updated. Reloading catalog...';
+  PRODUCTS = await sbAll('products?select=*&order=product.asc');
+  status.textContent = 'Stock import complete: '+updates.length+' products updated.';
+}
+
+let discountRows = [];
+async function loadDiscountReport(){
+  discountRows = await sb('GET','orders?select=*&order_type=eq.discount&order=created_at.desc&limit=500');
+  const tbody = document.querySelector('#discountTable tbody');
+  tbody.innerHTML = discountRows.map(o=>{
+    const discountAmt = o.rsp*o.qty*CONFIG.DISCOUNT_RATE;
+    return '<tr><td>'+new Date(o.created_at).toLocaleDateString('en-ZA')+'</td><td>'+escapeHtml(o.staff_name)+'</td>'+
+      '<td>'+escapeHtml(o.product)+'</td><td>'+o.qty+'</td><td>R'+money(o.rsp*o.qty)+'</td>'+
+      '<td>R'+money(discountAmt)+'</td><td>R'+money(o.amount)+'</td><td>'+(o.invoiced?'Yes':'No')+'</td></tr>';
+  }).join('');
+  const totalRsp = discountRows.reduce((s,o)=>s+o.rsp*o.qty,0);
+  const totalDiscount = discountRows.reduce((s,o)=>s+o.rsp*o.qty*CONFIG.DISCOUNT_RATE,0);
+  const totalPayable = discountRows.reduce((s,o)=>s+Number(o.amount),0);
+  document.getElementById('discountTotals').textContent =
+    discountRows.length+' orders — Total RSP R'+money(totalRsp)+' — Total Discount R'+money(totalDiscount)+' — Total Payable R'+money(totalPayable);
+}
+
+function exportDiscountReportCsv(){
+  const header = ['Date','Staff','SKU','Product','Qty','RSP Total','Discount Amount','Amount Payable','Invoiced'];
+  const lines = [header.join(',')];
+  discountRows.forEach(o=>{
+    const discountAmt = o.rsp*o.qty*CONFIG.DISCOUNT_RATE;
+    lines.push([new Date(o.created_at).toLocaleDateString('en-ZA'), o.staff_name, o.sku, '"'+String(o.product).replace(/"/g,'""')+'"', o.qty, (o.rsp*o.qty).toFixed(2), discountAmt.toFixed(2), Number(o.amount).toFixed(2), o.invoiced].join(','));
+  });
+  const blob = new Blob([lines.join('\n')], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'staff-discount-report.csv'; a.click();
+}
+
+if(CONFIG.EMAILJS_PUBLIC_KEY && window.emailjs) emailjs.init({publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
+initOrderView();
+if(sessionStorage.getItem('fomAdmin')==='1') showAdminBody();
+</script>
+</body>
+</html>
