@@ -333,7 +333,7 @@ async function submitOrder(){
 
     if(CONFIG.EMAILJS_PUBLIC_KEY){
       await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID, {
-        to_email: toList, staff_name: selectedStaff.name, order_date: orderDate,
+        to_email: toList, email: toList, staff_name: selectedStaff.name, order_date: orderDate,
         product: selectedProduct.product, sku: selectedProduct.sku, qty,
         order_type: orderType === 'allowance' ? 'Staff Allowance' : 'Staff Discount (40%)',
         rsp: money(selectedProduct.rsp), amount: money(amount),
