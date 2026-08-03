@@ -138,6 +138,16 @@
         <div id="discountTotals" style="margin-top:10px;font-size:13px;font-weight:bold"></div>
       </div>
 
+      <div class="admin-section">
+        <h2>Order History (Cancel / Exchange)</h2>
+        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Cancelling an order deletes it and, for Staff Allowance orders, automatically refunds the amount to that person's balance. For an exchange, cancel the wrong item then have them place a new order.</p>
+        <button class="secondary" onclick="loadOrderHistory()">Refresh</button>
+        <table class="admin" id="historyTable">
+          <thead><tr><th>Date</th><th>Staff</th><th>Product</th><th>Qty</th><th>Type</th><th>Amount</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
     </div>
   </div>
 
@@ -369,6 +379,7 @@ function showAdminBody(){
   document.getElementById('adminBody').style.display = 'block';
   loadStaffTable();
   loadDiscountReport();
+  loadOrderHistory();
 }
 
 async function loadStaffTable(){
@@ -453,6 +464,41 @@ async function loadDiscountReport(){
   const totalPayable = discountRows.reduce((s,o)=>s+Number(o.amount),0);
   document.getElementById('discountTotals').textContent =
     discountRows.length+' orders — Total RSP R'+money(totalRsp)+' — Total Discount R'+money(totalDiscount)+' — Total Payable R'+money(totalPayable);
+}
+
+let historyRows = [];
+async function loadOrderHistory(){
+  historyRows = await sb('GET','orders?select=*&order=created_at.desc&limit=200');
+  const tbody = document.querySelector('#historyTable tbody');
+  tbody.innerHTML = historyRows.map(o=>
+    '<tr><td>'+new Date(o.created_at).toLocaleDateString('en-ZA')+'</td><td>'+escapeHtml(o.staff_name)+'</td>'+
+    '<td>'+escapeHtml(o.product)+'</td><td>'+o.qty+'</td>'+
+    '<td>'+(o.order_type==='allowance'?'Allowance':'Discount')+'</td><td>R'+money(o.amount)+'</td>'+
+    '<td><button class="secondary" onclick="cancelOrder('+o.id+')">Cancel</button></td></tr>'
+  ).join('');
+}
+
+async function cancelOrder(id){
+  const order = historyRows.find(o=>o.id===id);
+  if(!order) return;
+  if(!confirm('Cancel this order for '+order.staff_name+' ('+order.product+')?'+(order.order_type==='allowance'?' R'+money(order.amount)+' will be refunded to their balance.':''))) return;
+  try{
+    if(order.order_type === 'allowance'){
+      const rows = await sb('GET','staff?select=*&name=eq.'+encodeURIComponent(order.staff_name));
+      if(rows[0]){
+        const newBalance = Number(rows[0].balance) + Number(order.amount);
+        await sb('PATCH','staff?name=eq.'+encodeURIComponent(order.staff_name), {balance: newBalance});
+      }
+    }
+    await sb('DELETE','orders?id=eq.'+id, null, {'Prefer':'return=minimal'});
+    toast('Order cancelled'+(order.order_type==='allowance'?' and balance refunded':''));
+    loadOrderHistory();
+    loadDiscountReport();
+    loadStaffTable();
+  }catch(e){
+    console.error(e);
+    toast('Could not cancel this order', true);
+  }
 }
 
 function exportDiscountReportCsv(){

@@ -51,3 +51,4 @@ create policy "anon write products" on products for all using (true) with check 
 create policy "anon read orders" on orders for select using (true);
 create policy "anon insert orders" on orders for insert with check (true);
 create policy "anon update orders" on orders for update using (true) with check (true);
+create policy "anon delete orders" on orders for delete using (true);
