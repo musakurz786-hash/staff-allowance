@@ -24,7 +24,7 @@ create table orders (
   id bigint generated always as identity primary key,
   created_at timestamptz default now(),
   staff_name text not null references staff(name),
-  sku text references products(sku),
+  sku text, -- intentionally no FK to products: order history must survive a product being discontinued/removed later
   product text not null,
   qty int not null default 1,
   order_type text not null check (order_type in ('allowance','discount')),
@@ -47,6 +47,7 @@ alter table orders enable row level security;
 create policy "anon read staff" on staff for select using (true);
 create policy "anon insert staff" on staff for insert with check (true);
 create policy "anon update staff" on staff for update using (true) with check (true);
+create policy "anon delete staff" on staff for delete using (true);
 create policy "anon read products" on products for select using (true);
 create policy "anon write products" on products for all using (true) with check (true);
 create policy "anon read orders" on orders for select using (true);
