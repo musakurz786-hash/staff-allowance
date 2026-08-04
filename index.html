@@ -6,15 +6,15 @@
 <title>FOM Staff Allowance & Discount Portal</title>
 <style>
   :root{
-    --ink:#1c1c1c; --grey:#8a8a8a; --panel:#f5f5f5; --line:#e5e5e5; --good:#2e7d32; --bad:#c0392b;
+    --ink:#1c1c1c; --grey:#8a8a8a; --panel:#f5f5f5; --line:#e5e5e5; --good:#2e7d32; --bad:#c0392b; --brand-green:#8BC34A;
   }
   *{box-sizing:border-box;}
   body{font-family:Helvetica,Arial,sans-serif;color:var(--ink);background:#fff;margin:0;}
-  header{background:var(--ink);color:#fff;padding:18px 24px;display:flex;align-items:center;justify-content:space-between;}
+  header{background:var(--brand-green);color:var(--ink);padding:18px 24px;display:flex;align-items:center;justify-content:space-between;}
   header .brand{font-size:13px;letter-spacing:3px;text-transform:uppercase;font-weight:bold;}
   header nav{display:flex;gap:4px;}
-  header nav button{background:transparent;border:1px solid #555;color:#ccc;padding:8px 16px;font-size:12px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:2px;}
-  header nav button.active{background:#fff;color:var(--ink);border-color:#fff;}
+  header nav button{background:transparent;border:1px solid rgba(28,28,28,.35);color:var(--ink);padding:8px 16px;font-size:12px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:2px;}
+  header nav button.active{background:var(--ink);color:#fff;border-color:var(--ink);}
   main{max-width:720px;margin:0 auto;padding:28px 20px 80px;}
   .view{display:none;}
   .view.active{display:block;}
@@ -65,7 +65,10 @@
 <body>
 
 <header>
-  <div class="brand">FOM Staff Allowance</div>
+  <div class="brand" style="display:flex;align-items:center;gap:10px;">
+    <img src="https://www.freedomofmovement.co.za/cdn/shop/files/FOM_4a277dc0-1749-4e5c-92ce-3fccd1ec7e55.png?v=1760905009&width=140" alt="FOM" style="height:20px;">
+    <span>Staff Allowance</span>
+  </div>
   <nav>
     <button id="navOrder" class="active" onclick="showView('order')">Order</button>
     <button id="navAdmin" onclick="showView('admin')">Admin</button>
