@@ -128,11 +128,11 @@
 
       <div class="admin-section">
         <h2>Staff Discount Report (for ERP Invoicing)</h2>
-        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Shows RSP and the {{DISCOUNT_PCT}}% discount amount for every staff-discount order, so it can be invoiced against stock in the ERP.</p>
+        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Shows RSP and the <span id="discountPctLabel"></span>% discount amount for every staff-discount order, so it can be invoiced against stock in the ERP.</p>
         <button class="secondary" onclick="loadDiscountReport()">Refresh Report</button>
         <button class="secondary" onclick="exportDiscountReportCsv()">Export CSV</button>
         <table class="admin" id="discountTable" style="margin-top:14px">
-          <thead><tr><th>Date</th><th>Staff</th><th>Product</th><th>Qty</th><th>RSP</th><th>Discount</th><th>Payable</th><th>Cin7 Invoice</th></tr></thead>
+          <thead><tr><th>Date</th><th>Staff</th><th>Product</th><th>Qty</th><th>RSP</th><th>Discount</th><th>Payable</th><th>Cin7 Invoice</th><th></th></tr></thead>
           <tbody></tbody>
         </table>
         <div id="discountTotals" style="margin-top:10px;font-size:13px;font-weight:bold"></div>
@@ -501,7 +501,8 @@ async function loadDiscountReport(){
       : '<input type="file" accept="application/pdf" id="invFile'+o.id+'" style="max-width:110px;font-size:11px"> <button class="secondary" onclick="uploadInvoice('+o.id+')">Upload</button>';
     return '<tr><td>'+new Date(o.created_at).toLocaleDateString('en-ZA')+'</td><td>'+escapeHtml(o.staff_name)+'</td>'+
       '<td>'+escapeHtml(o.product)+'</td><td>'+o.qty+'</td><td>R'+money(o.rsp*o.qty)+'</td>'+
-      '<td>R'+money(discountAmt)+'</td><td>R'+money(o.amount)+'</td><td>'+invoiceCell+'</td></tr>';
+      '<td>R'+money(discountAmt)+'</td><td>R'+money(o.amount)+'</td><td>'+invoiceCell+'</td>'+
+      '<td><button class="secondary" onclick="cancelOrder('+o.id+')">Delete</button></td></tr>';
   }).join('');
   const totalRsp = discountRows.reduce((s,o)=>s+o.rsp*o.qty,0);
   const totalDiscount = discountRows.reduce((s,o)=>s+o.rsp*o.qty*CONFIG.DISCOUNT_RATE,0);
@@ -605,6 +606,7 @@ function exportDiscountReportCsv(){
 }
 
 if(CONFIG.EMAILJS_PUBLIC_KEY && window.emailjs) emailjs.init({publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
+document.getElementById('discountPctLabel').textContent = Math.round(CONFIG.DISCOUNT_RATE*100);
 initOrderView();
 if(sessionStorage.getItem('fomAdmin')==='1') showAdminBody();
 </script>
