@@ -359,7 +359,9 @@ async function submitOrder(){
     const orderDate = new Date().toLocaleDateString('en-ZA', {year:'numeric',month:'long',day:'numeric'});
     const toList = [selectedStaff.email, CONFIG.MANAGER_EMAIL, CONFIG.WAREHOUSE_EMAIL].filter((v,i,a)=>v && a.indexOf(v)===i).join(', ');
 
-    if(CONFIG.EMAILJS_PUBLIC_KEY){
+    // Staff Discount orders don't email immediately — the email only goes out once the Cin7 invoice
+    // is attached in the admin panel (via emailInvoiceLink), so recipients get the invoice link with it.
+    if(CONFIG.EMAILJS_PUBLIC_KEY && orderType === 'allowance'){
       const summary = await buildAllowanceSummary(selectedStaff.name, selectedStaff.period, selectedStaff.allowance);
 
       await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID, {
@@ -378,7 +380,9 @@ async function submitOrder(){
     document.getElementById('orderPanel').innerHTML = '';
     document.getElementById('productSearch').value = '';
     document.getElementById('results').style.display = 'none';
-    toast('Order confirmed — confirmation email sent. Dankie! Thank you! Danke! Shukran!');
+    toast(orderType === 'allowance'
+      ? 'Order confirmed — confirmation email sent. Dankie! Thank you! Danke! Shukran!'
+      : 'Order confirmed. Email goes out once the Cin7 invoice is attached. Dankie! Thank you! Danke! Shukran!');
   }catch(e){
     console.error(e);
     toast('Something went wrong placing the order', true);
