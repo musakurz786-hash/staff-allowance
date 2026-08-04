@@ -85,7 +85,7 @@
 
     <div id="balanceCard" class="balance-card" style="display:none">
       <div><div class="label">Annual Allowance</div><div class="value" id="balAllowance">R0</div></div>
-      <div><div class="label">Balance Remaining</div><div class="value" id="balBalance">R0</div></div>
+      <div><div class="label" id="balBalanceLabel">Balance Remaining</div><div class="value" id="balBalance">R0</div></div>
       <div><div class="label">Period</div><div class="value" id="balPeriod">-</div></div>
     </div>
 
@@ -236,7 +236,10 @@ function onStaffChange(){
   card.style.display = 'flex';
   document.getElementById('balAllowance').textContent = 'R'+money(selectedStaff.allowance);
   const balEl = document.getElementById('balBalance');
-  balEl.textContent = 'R'+money(selectedStaff.balance);
+  const labelEl = document.getElementById('balBalanceLabel');
+  const isOutstanding = selectedStaff.balance < 0;
+  labelEl.textContent = isOutstanding ? 'Outstanding Balance' : 'Balance Remaining';
+  balEl.textContent = 'R'+money(Math.abs(selectedStaff.balance));
   balEl.className = 'value'+(selectedStaff.balance <= 0 ? ' low' : '');
   document.getElementById('balPeriod').textContent = selectedStaff.period;
   document.getElementById('orderPanel').innerHTML = '';
@@ -310,7 +313,8 @@ function renderAmounts(){
   }
   html += '<div class="amount-row total"><span>'+label+'</span><span>R'+money(amount)+'</span></div>';
   if(orderType==='allowance' && selectedStaff && amount > selectedStaff.balance){
-    html += '<div class="amount-row" style="color:var(--bad)"><span>Insufficient balance</span><span>R'+money(selectedStaff.balance)+' available</span></div>';
+    const balText = selectedStaff.balance < 0 ? 'R'+money(Math.abs(selectedStaff.balance))+' outstanding' : 'R'+money(selectedStaff.balance)+' available';
+    html += '<div class="amount-row" style="color:var(--bad)"><span>Insufficient balance</span><span>'+balText+'</span></div>';
   }
   document.getElementById('amounts').innerHTML = html;
 }
@@ -385,9 +389,12 @@ function showAdminBody(){
 async function loadStaffTable(){
   const rows = await sb('GET','staff?select=*&order=name.asc');
   const tbody = document.querySelector('#staffTable tbody');
-  tbody.innerHTML = rows.map(s=>
-    '<tr><td>'+escapeHtml(s.name)+'</td><td>'+escapeHtml(s.period)+'</td><td>R'+money(s.allowance)+'</td><td>R'+money(s.balance)+'</td></tr>'
-  ).join('');
+  tbody.innerHTML = rows.map(s=>{
+    const balText = s.balance < 0
+      ? '<span style="color:var(--bad)">R'+money(Math.abs(s.balance))+' outstanding</span>'
+      : 'R'+money(s.balance);
+    return '<tr><td>'+escapeHtml(s.name)+'</td><td>'+escapeHtml(s.period)+'</td><td>R'+money(s.allowance)+'</td><td>'+balText+'</td></tr>';
+  }).join('');
 }
 
 async function startNewPeriod(){
