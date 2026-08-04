@@ -349,10 +349,13 @@ async function submitOrder(){
       // pull this person's allowance purchases for the year so the email is a full statement, not just this order
       const yearOrders = await sb('GET','orders?select=*&staff_name=eq.'+encodeURIComponent(selectedStaff.name)+
         '&period=eq.'+encodeURIComponent(selectedStaff.period)+'&order_type=eq.allowance&order=created_at.asc');
-      const history = yearOrders.map(o => ({
-        date: new Date(o.created_at).toLocaleDateString('en-ZA'),
-        product: o.product, qty: o.qty, amount: money(o.amount)
-      }));
+      const historyRows = yearOrders.map(o =>
+        '<tr style="border-top: 1px solid #e5e5e5;">'+
+          '<td style="padding: 6px 0; white-space:nowrap;">'+new Date(o.created_at).toLocaleDateString('en-ZA')+'</td>'+
+          '<td style="padding: 6px 0;">'+escapeHtml(o.product)+' (x'+o.qty+')</td>'+
+          '<td style="padding: 6px 0; text-align:right; white-space:nowrap;">R'+money(o.amount)+'</td>'+
+        '</tr>'
+      ).join('');
       const totalUsed = yearOrders.reduce((s,o)=>s+Number(o.amount),0);
 
       await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID, {
@@ -362,7 +365,7 @@ async function submitOrder(){
         rsp: money(selectedProduct.rsp), amount: money(amount),
         balance_before: money(balanceBefore), balance_after: money(balanceAfter),
         period: selectedStaff.period, total_allowance: money(selectedStaff.allowance), total_used: money(totalUsed),
-        history
+        history_rows: historyRows
       }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
     }
 

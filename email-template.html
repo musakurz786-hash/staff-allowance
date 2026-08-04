@@ -48,13 +48,7 @@
       <tr style="color:#8a8a8a; text-align:left;">
         <td style="padding: 4px 0;">Date</td><td style="padding: 4px 0;">Item</td><td style="padding: 4px 0; text-align:right;">Amount</td>
       </tr>
-      {{#history}}
-      <tr style="border-top: 1px solid #e5e5e5;">
-        <td style="padding: 6px 0; white-space:nowrap;">{{date}}</td>
-        <td style="padding: 6px 0;">{{product}} (x{{qty}})</td>
-        <td style="padding: 6px 0; text-align:right; white-space:nowrap;">R{{amount}}</td>
-      </tr>
-      {{/history}}
+      {{history_rows}}
     </table>
     <table style="width:100%; margin-top: 12px; font-size: 13px; border-top: 2px solid #1c1c1c; padding-top: 8px;">
       <tr><td style="padding: 4px 0; color: #8a8a8a;">Annual Allowance</td><td style="padding: 4px 0; text-align:right;">R{{total_allowance}}</td></tr>
