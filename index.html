@@ -584,15 +584,13 @@ async function emailInvoiceLink(id){
   const person = staffRows[0];
   const toList = [person && person.email, CONFIG.MANAGER_EMAIL, CONFIG.WAREHOUSE_EMAIL].filter((v,i,a)=>v && a.indexOf(v)===i).join(', ');
   try{
-    const summary = person ? await buildAllowanceSummary(person.name, person.period, person.allowance) : {historyRows:'', totalUsed:'0,00', totalAllowance:'0,00'};
-    const bal = person ? money(person.balance) : '';
-    await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID, {
+    const discountAmt = order.rsp*order.qty*CONFIG.DISCOUNT_RATE;
+    const templateId = CONFIG.EMAILJS_TEMPLATE_ID_DISCOUNT || CONFIG.EMAILJS_TEMPLATE_ID;
+    await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, templateId, {
       to_email: toList, email: toList, staff_name: order.staff_name,
       order_date: new Date(order.created_at).toLocaleDateString('en-ZA', {year:'numeric',month:'long',day:'numeric'}),
       product: order.product, sku: order.sku||'', qty: order.qty,
-      order_type: 'Staff Discount (40%)', rsp: money(order.rsp), amount: money(order.amount),
-      balance_before: bal, balance_after: bal, period: order.period,
-      total_allowance: summary.totalAllowance, total_used: summary.totalUsed, history_rows: summary.historyRows,
+      rsp: money(order.rsp*order.qty), discount_amount: money(discountAmt), amount: money(order.amount),
       invoice_line: 'Cin7 Invoice: '+order.invoice_url
     }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
     toast('Invoice emailed');

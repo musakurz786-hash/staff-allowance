@@ -1,0 +1,50 @@
+<div style="font-family: Helvetica, Arial, sans-serif; font-size: 14px; color: #1c1c1c; padding: 24px 8px; background-color: #f5f5f5;">
+<div style="max-width: 600px; margin: auto; background-color: #ffffff;">
+
+  <div style="background-color: #1c1c1c; padding: 20px 28px; text-align: center;">
+    <img src="https://www.freedomofmovement.co.za/cdn/shop/files/FOM_4a277dc0-1749-4e5c-92ce-3fccd1ec7e55.png?v=1760905009&width=200" alt="Freedom of Movement" style="height: 28px;" />
+  </div>
+
+  <div style="padding: 28px;">
+    <p style="font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #8a8a8a; margin: 0 0 6px;">Staff Discount Confirmation</p>
+    <p style="font-size: 20px; font-weight: bold; margin: 0 0 20px;">{{staff_name}}</p>
+    <p style="font-size: 12px; color: #8a8a8a; margin: -14px 0 24px;">{{order_date}}</p>
+
+    <table style="width:100%; border-collapse: collapse; background-color:#f5f5f5;">
+      <tr>
+        <td style="padding: 16px;">
+          <div style="font-weight: bold;">{{product}}</div>
+          <div style="font-size: 12px; color: #8a8a8a; margin-top: 4px;">SKU {{sku}} &nbsp;&middot;&nbsp; Qty {{qty}}</div>
+        </td>
+        <td style="padding: 16px; text-align:right; font-weight: bold; white-space: nowrap;">R{{amount}}</td>
+      </tr>
+    </table>
+
+    <table style="width:100%; margin-top: 20px; font-size: 13px;">
+      <tr>
+        <td style="padding: 6px 0; color: #8a8a8a;">RSP</td>
+        <td style="padding: 6px 0; text-align:right;">R{{rsp}}</td>
+      </tr>
+      <tr>
+        <td style="padding: 6px 0; color: #8a8a8a; border-top: 1px solid #e5e5e5;">Staff Discount (40%)</td>
+        <td style="padding: 6px 0; text-align:right; border-top: 1px solid #e5e5e5;">-R{{discount_amount}}</td>
+      </tr>
+      <tr>
+        <td style="padding: 6px 0; font-weight: bold;">Amount Due</td>
+        <td style="padding: 6px 0; text-align:right; font-weight: bold;">R{{amount}}</td>
+      </tr>
+    </table>
+
+    <p style="margin-top: 28px; padding-top: 16px; border-top: 1px solid #e5e5e5; font-size: 13px; color: #8a8a8a;">
+      Please pick and prepare this item for collection/delivery.
+    </p>
+
+    {{invoice_line}}
+  </div>
+
+  <div style="text-align:center; padding: 16px; font-size: 11px; color: #8a8a8a;">
+    Freedom of Movement &middot; Staff Allowance Portal
+  </div>
+
+</div>
+</div>
