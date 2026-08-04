@@ -130,6 +130,12 @@
           <div class="field"><label>New Period Label (e.g. 2027)</label><input type="text" id="newPeriod"></div>
           <button class="secondary" onclick="startNewPeriod()">Reset All Balances For New Period</button>
         </div>
+        <div class="row-flex" style="margin-bottom:14px">
+          <div class="field"><label>Add Staff — Name</label><input type="text" id="newStaffName"></div>
+          <div class="field"><label>Email (optional)</label><input type="text" id="newStaffEmail"></div>
+          <div class="field"><label>Allowance (0 for discount-only staff)</label><input type="number" id="newStaffAllowance" value="0"></div>
+          <button class="secondary" onclick="addStaff()">Add</button>
+        </div>
         <table class="admin" id="staffTable"><thead><tr><th>Name</th><th>Email</th><th>Period</th><th>Allowance</th><th>Balance</th></tr></thead><tbody></tbody></table>
       </div>
 
@@ -275,21 +281,25 @@ function selectProduct(sku){
   if(!selectedStaff){ toast('Select your name first', true); return; }
   selectedProduct = PRODUCTS.find(p=>p.sku===sku);
   if(!selectedProduct) return;
-  orderType = 'allowance';
+  orderType = selectedStaff.allowance > 0 ? 'allowance' : 'discount';
   renderOrderPanel();
 }
 
 function renderOrderPanel(){
   const p = selectedProduct;
+  const hasAllowance = selectedStaff.allowance > 0;
+  const toggle = hasAllowance
+    ? '<div class="type-toggle">'+
+        '<button id="typeAllowance" class="active" onclick="setOrderType(\'allowance\')">Staff Allowance</button>'+
+        '<button id="typeDiscount" onclick="setOrderType(\'discount\')">Staff Discount ('+Math.round(CONFIG.DISCOUNT_RATE*100)+'%)</button>'+
+      '</div>'
+    : '<p style="font-size:12px;color:var(--grey);margin:-8px 0 18px">No staff allowance on file — this will go through as a Staff Discount ('+Math.round(CONFIG.DISCOUNT_RATE*100)+'%) purchase.</p>';
   document.getElementById('orderPanel').innerHTML =
     '<div class="order-panel">'+
       '<h3>'+escapeHtml(p.product)+'</h3>'+
       '<div class="sub">SKU '+escapeHtml(p.sku)+' &middot; RSP R'+money(p.rsp)+'</div>'+
       '<div class="field"><label>Quantity</label><input type="number" id="orderQty" min="1" value="1" oninput="renderAmounts()"></div>'+
-      '<div class="type-toggle">'+
-        '<button id="typeAllowance" class="active" onclick="setOrderType(\'allowance\')">Staff Allowance</button>'+
-        '<button id="typeDiscount" onclick="setOrderType(\'discount\')">Staff Discount ('+Math.round(CONFIG.DISCOUNT_RATE*100)+'%)</button>'+
-      '</div>'+
+      toggle+
       '<div id="amounts"></div>'+
       '<button class="primary" id="submitBtn" onclick="submitOrder()">Confirm Order</button>'+
     '</div>';
@@ -427,6 +437,29 @@ async function loadStaffTable(){
       'onblur="saveStaffEmail(\''+s.name.replace(/'/g,"\\'")+'\', this.value)">';
     return '<tr><td>'+escapeHtml(s.name)+'</td><td>'+emailInput+'</td><td>'+escapeHtml(s.period)+'</td><td>R'+money(s.allowance)+'</td><td>'+balText+'</td></tr>';
   }).join('');
+}
+
+async function addStaff(){
+  const name = document.getElementById('newStaffName').value.trim();
+  const email = document.getElementById('newStaffEmail').value.trim();
+  const allowance = Number(document.getElementById('newStaffAllowance').value) || 0;
+  if(!name){ toast('Enter a name first', true); return; }
+  try{
+    await sb('POST','staff', {
+      name, email: email || null, allowance, balance: allowance, period: CONFIG.CURRENT_PERIOD
+    }, {'Prefer':'return=minimal'});
+    document.getElementById('newStaffName').value = '';
+    document.getElementById('newStaffEmail').value = '';
+    document.getElementById('newStaffAllowance').value = '0';
+    STAFF = await sb('GET','staff?select=*&order=name.asc');
+    const sel = document.getElementById('staffSelect');
+    sel.innerHTML = '<option value="">Select your name...</option>' + STAFF.map(s=>'<option value="'+escapeHtml(s.name)+'">'+escapeHtml(s.name)+'</option>').join('');
+    loadStaffTable();
+    toast(name+' added'+(allowance===0 ? ' (discount only)' : ''));
+  }catch(e){
+    console.error(e);
+    toast('Could not add staff — name may already exist', true);
+  }
 }
 
 async function saveStaffEmail(name, email){
