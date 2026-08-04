@@ -32,7 +32,9 @@ create table orders (
   amount numeric not null, -- allowance orders: amount deducted from balance. discount orders: amount payable by staff.
   period text not null,
   invoiced boolean not null default false,
-  invoice_url text -- link to the Cin7 invoice PDF, uploaded via the admin panel once the discount sale is processed
+  invoice_url text, -- link to the Cin7 invoice PDF, uploaded via the admin panel once the discount sale is processed
+  is_historical boolean not null default false -- backfilled from the old spreadsheet, pre-dating the app.
+    -- Balances were seeded as a fixed number that already accounts for these, so cancelling one must NOT refund it.
 );
 
 create index orders_staff_idx on orders(staff_name);

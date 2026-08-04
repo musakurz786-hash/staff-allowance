@@ -663,11 +663,17 @@ async function loadOrderHistory(){
 }
 
 async function cancelOrder(id){
-  const order = historyRows.find(o=>o.id===id);
+  const order = historyRows.find(o=>o.id===id) || discountRows.find(o=>o.id===id);
   if(!order) return;
-  if(!confirm('Cancel this order for '+order.staff_name+' ('+order.product+')?'+(order.order_type==='allowance'?' R'+money(order.amount)+' will be refunded to their balance.':''))) return;
+  // historical (pre-app, backfilled) orders never refund: the person's balance was seeded as a
+  // fixed number that already accounts for these, so "cancelling" one must just delete the record.
+  const willRefund = order.order_type === 'allowance' && !order.is_historical;
+  const confirmMsg = order.is_historical
+    ? 'Delete this historical record for '+order.staff_name+' ('+order.product+')? This is a backfilled entry — no balance change will happen.'
+    : 'Cancel this order for '+order.staff_name+' ('+order.product+')?'+(willRefund ? ' R'+money(order.amount)+' will be refunded to their balance.' : '');
+  if(!confirm(confirmMsg)) return;
   try{
-    if(order.order_type === 'allowance'){
+    if(willRefund){
       const rows = await sb('GET','staff?select=*&name=eq.'+encodeURIComponent(order.staff_name));
       if(rows[0]){
         const newBalance = Number(rows[0].balance) + Number(order.amount);
@@ -675,7 +681,7 @@ async function cancelOrder(id){
       }
     }
     await sb('DELETE','orders?id=eq.'+id, null, {'Prefer':'return=minimal'});
-    toast('Order cancelled'+(order.order_type==='allowance'?' and balance refunded':''));
+    toast(order.is_historical ? 'Historical record deleted' : 'Order cancelled'+(willRefund?' and balance refunded':''));
     loadOrderHistory();
     loadDiscountReport();
     loadStaffTable();
