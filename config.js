@@ -10,7 +10,7 @@ const CONFIG = {
   EMAILJS_PUBLIC_KEY: 'RSLU4ptjtK9who1fa',   // Account -> General -> Public Key
   EMAILJS_SERVICE_ID: 'service_637v8yq',   // Email Services tab
   EMAILJS_TEMPLATE_ID: 'template_e6ygax1',  // "Order Confirmation" template — used for Staff Allowance orders
-  EMAILJS_TEMPLATE_ID_DISCOUNT: '',         // fill in once you've created the "Staff Discount Confirmation" template
+  EMAILJS_TEMPLATE_ID_DISCOUNT: 'template_rp6yxwe',         // the "Staff Discount Confirmation" template
 
   WAREHOUSE_EMAIL: 'musa@freedomofmovement.co.za', // testing for now, swap to warehouse junior manager later
   MANAGER_EMAIL: 'musa@freedomofmovement.co.za',
