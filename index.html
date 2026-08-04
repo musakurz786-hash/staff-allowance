@@ -123,7 +123,7 @@
           <div class="field"><label>New Period Label (e.g. 2027)</label><input type="text" id="newPeriod"></div>
           <button class="secondary" onclick="startNewPeriod()">Reset All Balances For New Period</button>
         </div>
-        <table class="admin" id="staffTable"><thead><tr><th>Name</th><th>Period</th><th>Allowance</th><th>Balance</th></tr></thead><tbody></tbody></table>
+        <table class="admin" id="staffTable"><thead><tr><th>Name</th><th>Email</th><th>Period</th><th>Allowance</th><th>Balance</th></tr></thead><tbody></tbody></table>
       </div>
 
       <div class="admin-section">
@@ -343,15 +343,26 @@ async function submitOrder(){
     }, {'Prefer':'return=minimal'});
 
     const orderDate = new Date().toLocaleDateString('en-ZA', {year:'numeric',month:'long',day:'numeric'});
-    const toList = [CONFIG.MANAGER_EMAIL, CONFIG.WAREHOUSE_EMAIL].filter((v,i,a)=>v && a.indexOf(v)===i).join(', ');
+    const toList = [selectedStaff.email, CONFIG.MANAGER_EMAIL, CONFIG.WAREHOUSE_EMAIL].filter((v,i,a)=>v && a.indexOf(v)===i).join(', ');
 
     if(CONFIG.EMAILJS_PUBLIC_KEY){
+      // pull this person's allowance purchases for the year so the email is a full statement, not just this order
+      const yearOrders = await sb('GET','orders?select=*&staff_name=eq.'+encodeURIComponent(selectedStaff.name)+
+        '&period=eq.'+encodeURIComponent(selectedStaff.period)+'&order_type=eq.allowance&order=created_at.asc');
+      const history = yearOrders.map(o => ({
+        date: new Date(o.created_at).toLocaleDateString('en-ZA'),
+        product: o.product, qty: o.qty, amount: money(o.amount)
+      }));
+      const totalUsed = yearOrders.reduce((s,o)=>s+Number(o.amount),0);
+
       await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID, {
         to_email: toList, email: toList, staff_name: selectedStaff.name, order_date: orderDate,
         product: selectedProduct.product, sku: selectedProduct.sku, qty,
         order_type: orderType === 'allowance' ? 'Staff Allowance' : 'Staff Discount (40%)',
         rsp: money(selectedProduct.rsp), amount: money(amount),
-        balance_before: money(balanceBefore), balance_after: money(balanceAfter)
+        balance_before: money(balanceBefore), balance_after: money(balanceAfter),
+        period: selectedStaff.period, total_allowance: money(selectedStaff.allowance), total_used: money(totalUsed),
+        history
       }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
     }
 
@@ -393,8 +404,24 @@ async function loadStaffTable(){
     const balText = s.balance < 0
       ? '<span style="color:var(--bad)">R'+money(Math.abs(s.balance))+' outstanding</span>'
       : 'R'+money(s.balance);
-    return '<tr><td>'+escapeHtml(s.name)+'</td><td>'+escapeHtml(s.period)+'</td><td>R'+money(s.allowance)+'</td><td>'+balText+'</td></tr>';
+    const emailInput = '<input type="text" value="'+escapeHtml(s.email||'')+'" placeholder="name@freedomofmovement.co.za" '+
+      'style="width:100%;padding:6px 8px;font-size:12px;border:1px solid #ccc;border-radius:3px" '+
+      'onblur="saveStaffEmail(\''+s.name.replace(/'/g,"\\'")+'\', this.value)">';
+    return '<tr><td>'+escapeHtml(s.name)+'</td><td>'+emailInput+'</td><td>'+escapeHtml(s.period)+'</td><td>R'+money(s.allowance)+'</td><td>'+balText+'</td></tr>';
   }).join('');
+}
+
+async function saveStaffEmail(name, email){
+  email = email.trim();
+  try{
+    await sb('PATCH','staff?name=eq.'+encodeURIComponent(name), {email: email || null});
+    const s = STAFF.find(x=>x.name===name);
+    if(s) s.email = email;
+    toast('Saved email for '+name);
+  }catch(e){
+    console.error(e);
+    toast('Could not save that email', true);
+  }
 }
 
 async function startNewPeriod(){

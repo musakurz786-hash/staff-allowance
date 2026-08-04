@@ -42,6 +42,25 @@
     <p style="margin-top: 28px; padding-top: 16px; border-top: 1px solid #e5e5e5; font-size: 13px; color: #8a8a8a;">
       Please pick and prepare this item for collection/delivery.
     </p>
+
+    <p style="font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #8a8a8a; margin: 32px 0 12px;">Your Allowance Purchases &mdash; {{period}}</p>
+    <table style="width:100%; border-collapse: collapse; font-size: 12px;">
+      <tr style="color:#8a8a8a; text-align:left;">
+        <td style="padding: 4px 0;">Date</td><td style="padding: 4px 0;">Item</td><td style="padding: 4px 0; text-align:right;">Amount</td>
+      </tr>
+      {{#history}}
+      <tr style="border-top: 1px solid #e5e5e5;">
+        <td style="padding: 6px 0; white-space:nowrap;">{{date}}</td>
+        <td style="padding: 6px 0;">{{product}} (x{{qty}})</td>
+        <td style="padding: 6px 0; text-align:right; white-space:nowrap;">R{{amount}}</td>
+      </tr>
+      {{/history}}
+    </table>
+    <table style="width:100%; margin-top: 12px; font-size: 13px; border-top: 2px solid #1c1c1c; padding-top: 8px;">
+      <tr><td style="padding: 4px 0; color: #8a8a8a;">Annual Allowance</td><td style="padding: 4px 0; text-align:right;">R{{total_allowance}}</td></tr>
+      <tr><td style="padding: 4px 0; color: #8a8a8a;">Used So Far</td><td style="padding: 4px 0; text-align:right;">R{{total_used}}</td></tr>
+      <tr><td style="padding: 4px 0; font-weight: bold;">Balance Remaining</td><td style="padding: 4px 0; text-align:right; font-weight: bold;">R{{balance_after}}</td></tr>
+    </table>
   </div>
 
   <div style="text-align:center; padding: 16px; font-size: 11px; color: #8a8a8a;">

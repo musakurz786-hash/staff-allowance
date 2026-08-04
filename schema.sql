@@ -4,6 +4,7 @@
 create table staff (
   id bigint generated always as identity primary key,
   name text not null unique,
+  email text,
   period text not null default '2026',
   allowance numeric not null default 0,
   balance numeric not null default 0
