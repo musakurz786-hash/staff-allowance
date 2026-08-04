@@ -118,6 +118,13 @@
       </div>
 
       <div class="admin-section">
+        <h2>Edit Product Pricing</h2>
+        <p style="font-size:13px;color:var(--grey);margin-top:-8px">For items on sale on the website but not in the ERP price list — search a product and update its price here.</p>
+        <input type="text" id="priceSearch" placeholder="Search by product name or SKU..." oninput="onPriceSearch()">
+        <div id="priceResults" class="results" style="display:none;margin-top:10px"></div>
+      </div>
+
+      <div class="admin-section">
         <h2>Staff Allowance Periods</h2>
         <div class="row-flex" style="margin-bottom:14px">
           <div class="field"><label>New Period Label (e.g. 2027)</label><input type="text" id="newPeriod"></div>
@@ -492,6 +499,39 @@ async function importStockFile(){
   status.textContent = 'Done — '+updates.length+' products updated. Reloading catalog...';
   PRODUCTS = await sbAll('products?select=*&order=product.asc');
   status.textContent = 'Stock import complete: '+updates.length+' products updated.';
+}
+
+function onPriceSearch(){
+  const q = document.getElementById('priceSearch').value.trim().toLowerCase();
+  const results = document.getElementById('priceResults');
+  if(q.length < 2){ results.style.display='none'; results.innerHTML=''; return; }
+  const matches = PRODUCTS.filter(p => p.product.toLowerCase().includes(q) || (p.sku||'').toLowerCase().includes(q)).slice(0,50);
+  results.style.display='block';
+  if(!matches.length){ results.innerHTML = '<div class="empty">No products match "'+escapeHtml(q)+'"</div>'; return; }
+  results.innerHTML = matches.map(p =>
+    '<div class="result-row" style="cursor:default">'+
+      '<div><div class="name">'+escapeHtml(p.product)+'</div><div class="meta">SKU '+escapeHtml(p.sku)+'</div></div>'+
+      '<div class="row-flex" style="gap:6px">'+
+        '<input type="number" step="0.01" value="'+p.rsp+'" id="priceInput'+p.sku+'" style="width:100px;padding:8px">'+
+        '<button class="secondary" onclick="savePriceEdit(\''+p.sku.replace(/'/g,"\\'")+'\')">Save</button>'+
+      '</div>'+
+    '</div>'
+  ).join('');
+}
+
+async function savePriceEdit(sku){
+  const input = document.getElementById('priceInput'+sku);
+  const newRsp = Number(input.value);
+  if(!(newRsp >= 0)){ toast('Enter a valid price', true); return; }
+  try{
+    await sb('PATCH','products?sku=eq.'+encodeURIComponent(sku), {rsp: newRsp, updated_at: new Date().toISOString()});
+    const p = PRODUCTS.find(x=>x.sku===sku);
+    if(p) p.rsp = newRsp;
+    toast('Price updated');
+  }catch(e){
+    console.error(e);
+    toast('Could not update price', true);
+  }
 }
 
 let discountRows = [];
