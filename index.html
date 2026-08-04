@@ -484,11 +484,17 @@ async function sendBalanceCopy(name){
   const toList = [person.email, CONFIG.MANAGER_EMAIL].filter((v,i,a)=>v && a.indexOf(v)===i).join(', ');
   try{
     const summary = await buildAllowanceSummary(person.name, person.period, person.allowance);
+    const bal = money(person.balance);
+    // reusing the Order Confirmation template (no spare EmailJS template slots) — blank out the
+    // order-specific fields so it reads as a balance summary rather than a new purchase
     await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID_BALANCE || CONFIG.EMAILJS_TEMPLATE_ID, {
       to_email: toList, email: toList, staff_name: person.name,
       order_date: new Date().toLocaleDateString('en-ZA', {year:'numeric',month:'long',day:'numeric'}),
+      product: 'Balance Summary (no new purchase)', sku: '-', qty: '-',
+      order_type: 'Balance Summary', rsp: '0,00', amount: '0,00',
+      balance_before: bal, balance_after: bal, invoice_line: '',
       period: person.period, total_allowance: summary.totalAllowance, total_used: summary.totalUsed,
-      balance_after: money(person.balance), history_rows: summary.historyRows
+      history_rows: summary.historyRows
     }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
     toast('Balance copy sent to '+name);
   }catch(e){
