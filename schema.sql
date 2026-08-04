@@ -31,7 +31,8 @@ create table orders (
   rsp numeric not null,
   amount numeric not null, -- allowance orders: amount deducted from balance. discount orders: amount payable by staff.
   period text not null,
-  invoiced boolean not null default false
+  invoiced boolean not null default false,
+  invoice_url text -- link to the Cin7 invoice PDF, uploaded via the admin panel once the discount sale is processed
 );
 
 create index orders_staff_idx on orders(staff_name);
@@ -54,3 +55,8 @@ create policy "anon read orders" on orders for select using (true);
 create policy "anon insert orders" on orders for insert with check (true);
 create policy "anon update orders" on orders for update using (true) with check (true);
 create policy "anon delete orders" on orders for delete using (true);
+
+-- Storage bucket "invoices" for uploaded Cin7 invoice PDFs. Create the bucket itself via the
+-- Supabase dashboard (Storage -> New bucket -> name "invoices" -> toggle Public ON), then run this:
+create policy "anon upload invoices" on storage.objects for insert with check (bucket_id = 'invoices');
+create policy "anon read invoices" on storage.objects for select using (bucket_id = 'invoices');

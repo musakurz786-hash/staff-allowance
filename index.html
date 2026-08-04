@@ -132,7 +132,7 @@
         <button class="secondary" onclick="loadDiscountReport()">Refresh Report</button>
         <button class="secondary" onclick="exportDiscountReportCsv()">Export CSV</button>
         <table class="admin" id="discountTable" style="margin-top:14px">
-          <thead><tr><th>Date</th><th>Staff</th><th>Product</th><th>Qty</th><th>RSP</th><th>Discount</th><th>Payable</th><th>Invoiced</th></tr></thead>
+          <thead><tr><th>Date</th><th>Staff</th><th>Product</th><th>Qty</th><th>RSP</th><th>Discount</th><th>Payable</th><th>Cin7 Invoice</th></tr></thead>
           <tbody></tbody>
         </table>
         <div id="discountTotals" style="margin-top:10px;font-size:13px;font-weight:bold"></div>
@@ -319,6 +319,20 @@ function renderAmounts(){
   document.getElementById('amounts').innerHTML = html;
 }
 
+// pulls a person's allowance purchases for the year so any email to them is a full statement,
+// not just a snapshot of a single order
+async function buildAllowanceSummary(staffName, period, allowance){
+  const yearOrders = await sb('GET','orders?select=*&staff_name=eq.'+encodeURIComponent(staffName)+
+    '&period=eq.'+encodeURIComponent(period)+'&order_type=eq.allowance&order=created_at.asc');
+  // plain text, one line per order — EmailJS escapes HTML in plain {{vars}}, so raw <tr> markup here would
+  // just show up as literal text in the email rather than an actual table
+  const historyRows = yearOrders.map(o =>
+    new Date(o.created_at).toLocaleDateString('en-ZA')+'  —  '+o.product+' (x'+o.qty+')  —  R'+money(o.amount)
+  ).join('\n');
+  const totalUsed = yearOrders.reduce((s,o)=>s+Number(o.amount),0);
+  return { historyRows, totalUsed: money(totalUsed), totalAllowance: money(allowance) };
+}
+
 async function submitOrder(){
   if(!selectedStaff || !selectedProduct) return;
   const {qty, amount} = currentAmount();
@@ -346,15 +360,7 @@ async function submitOrder(){
     const toList = [selectedStaff.email, CONFIG.MANAGER_EMAIL, CONFIG.WAREHOUSE_EMAIL].filter((v,i,a)=>v && a.indexOf(v)===i).join(', ');
 
     if(CONFIG.EMAILJS_PUBLIC_KEY){
-      // pull this person's allowance purchases for the year so the email is a full statement, not just this order
-      const yearOrders = await sb('GET','orders?select=*&staff_name=eq.'+encodeURIComponent(selectedStaff.name)+
-        '&period=eq.'+encodeURIComponent(selectedStaff.period)+'&order_type=eq.allowance&order=created_at.asc');
-      // plain text, one line per order — EmailJS escapes HTML in plain {{vars}}, so raw <tr> markup here would
-      // just show up as literal text in the email rather than an actual table
-      const historyRows = yearOrders.map(o =>
-        new Date(o.created_at).toLocaleDateString('en-ZA')+'  —  '+o.product+' (x'+o.qty+')  —  R'+money(o.amount)
-      ).join('\n');
-      const totalUsed = yearOrders.reduce((s,o)=>s+Number(o.amount),0);
+      const summary = await buildAllowanceSummary(selectedStaff.name, selectedStaff.period, selectedStaff.allowance);
 
       await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID, {
         to_email: toList, email: toList, staff_name: selectedStaff.name, order_date: orderDate,
@@ -362,8 +368,8 @@ async function submitOrder(){
         order_type: orderType === 'allowance' ? 'Staff Allowance' : 'Staff Discount (40%)',
         rsp: money(selectedProduct.rsp), amount: money(amount),
         balance_before: money(balanceBefore), balance_after: money(balanceAfter),
-        period: selectedStaff.period, total_allowance: money(selectedStaff.allowance), total_used: money(totalUsed),
-        history_rows: historyRows
+        period: selectedStaff.period, total_allowance: summary.totalAllowance, total_used: summary.totalUsed,
+        history_rows: summary.historyRows, invoice_line: ''
       }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
     }
 
@@ -490,15 +496,65 @@ async function loadDiscountReport(){
   const tbody = document.querySelector('#discountTable tbody');
   tbody.innerHTML = discountRows.map(o=>{
     const discountAmt = o.rsp*o.qty*CONFIG.DISCOUNT_RATE;
+    const invoiceCell = o.invoice_url
+      ? '<a href="'+o.invoice_url+'" target="_blank">View</a> &middot; <button class="secondary" onclick="emailInvoiceLink('+o.id+')">Email</button>'
+      : '<input type="file" accept="application/pdf" id="invFile'+o.id+'" style="max-width:110px;font-size:11px"> <button class="secondary" onclick="uploadInvoice('+o.id+')">Upload</button>';
     return '<tr><td>'+new Date(o.created_at).toLocaleDateString('en-ZA')+'</td><td>'+escapeHtml(o.staff_name)+'</td>'+
       '<td>'+escapeHtml(o.product)+'</td><td>'+o.qty+'</td><td>R'+money(o.rsp*o.qty)+'</td>'+
-      '<td>R'+money(discountAmt)+'</td><td>R'+money(o.amount)+'</td><td>'+(o.invoiced?'Yes':'No')+'</td></tr>';
+      '<td>R'+money(discountAmt)+'</td><td>R'+money(o.amount)+'</td><td>'+invoiceCell+'</td></tr>';
   }).join('');
   const totalRsp = discountRows.reduce((s,o)=>s+o.rsp*o.qty,0);
   const totalDiscount = discountRows.reduce((s,o)=>s+o.rsp*o.qty*CONFIG.DISCOUNT_RATE,0);
   const totalPayable = discountRows.reduce((s,o)=>s+Number(o.amount),0);
   document.getElementById('discountTotals').textContent =
     discountRows.length+' orders — Total RSP R'+money(totalRsp)+' — Total Discount R'+money(totalDiscount)+' — Total Payable R'+money(totalPayable);
+}
+
+async function uploadInvoice(id){
+  const input = document.getElementById('invFile'+id);
+  if(!input.files.length){ toast('Choose a PDF first', true); return; }
+  const file = input.files[0];
+  const path = id+'-'+Date.now()+'-'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+  try{
+    const buf = await file.arrayBuffer();
+    const r = await fetch(CONFIG.SB_URL+'/storage/v1/object/invoices/'+path, {
+      method:'POST', headers:{'apikey':CONFIG.SB_KEY,'Authorization':'Bearer '+CONFIG.SB_KEY,'Content-Type':file.type||'application/pdf'},
+      body: buf
+    });
+    if(!r.ok) throw new Error(await r.text());
+    const publicUrl = CONFIG.SB_URL+'/storage/v1/object/public/invoices/'+path;
+    await sb('PATCH','orders?id=eq.'+id, {invoice_url: publicUrl, invoiced: true});
+    toast('Invoice uploaded');
+    loadDiscountReport();
+  }catch(e){
+    console.error(e);
+    toast('Could not upload invoice', true);
+  }
+}
+
+async function emailInvoiceLink(id){
+  const order = discountRows.find(o=>o.id===id);
+  if(!order || !order.invoice_url) return;
+  const staffRows = await sb('GET','staff?select=*&name=eq.'+encodeURIComponent(order.staff_name));
+  const person = staffRows[0];
+  const toList = [person && person.email, CONFIG.MANAGER_EMAIL, CONFIG.WAREHOUSE_EMAIL].filter((v,i,a)=>v && a.indexOf(v)===i).join(', ');
+  try{
+    const summary = person ? await buildAllowanceSummary(person.name, person.period, person.allowance) : {historyRows:'', totalUsed:'0,00', totalAllowance:'0,00'};
+    const bal = person ? money(person.balance) : '';
+    await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID, {
+      to_email: toList, email: toList, staff_name: order.staff_name,
+      order_date: new Date(order.created_at).toLocaleDateString('en-ZA', {year:'numeric',month:'long',day:'numeric'}),
+      product: order.product, sku: order.sku||'', qty: order.qty,
+      order_type: 'Staff Discount (40%)', rsp: money(order.rsp), amount: money(order.amount),
+      balance_before: bal, balance_after: bal, period: order.period,
+      total_allowance: summary.totalAllowance, total_used: summary.totalUsed, history_rows: summary.historyRows,
+      invoice_line: 'Cin7 Invoice: '+order.invoice_url
+    }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
+    toast('Invoice emailed');
+  }catch(e){
+    console.error(e);
+    toast('Could not send invoice email', true);
+  }
 }
 
 let historyRows = [];
