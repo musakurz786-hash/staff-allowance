@@ -341,11 +341,16 @@ function renderAmounts(){
 async function buildAllowanceSummary(staffName, period, allowance){
   const yearOrders = await sb('GET','orders?select=*&staff_name=eq.'+encodeURIComponent(staffName)+
     '&period=eq.'+encodeURIComponent(period)+'&order_type=eq.allowance&order=created_at.asc');
-  // plain text, one line per order — EmailJS escapes HTML in plain {{vars}}, so raw <tr> markup here would
-  // just show up as literal text in the email rather than an actual table
-  const historyRows = yearOrders.map(o =>
-    new Date(o.created_at).toLocaleDateString('en-ZA')+'  —  '+o.product+' (x'+o.qty+')  —  R'+money(o.amount)
-  ).join('\n');
+  // plain text, one line per order, column-aligned via a monospace font in the template — EmailJS
+  // escapes HTML in plain {{vars}}, so raw <tr> markup here would just show up as literal text
+  // rather than an actual table, but padded columns still render as a clean, neat ledger.
+  const historyRows = yearOrders.map(o => {
+    const date = new Date(o.created_at).toLocaleDateString('en-ZA').padEnd(11);
+    let item = o.product + (o.qty > 1 ? ' (x'+o.qty+')' : '');
+    if(item.length > 42) item = item.slice(0,41)+'…';
+    const amt = ('R'+money(o.amount)).padStart(12);
+    return date + item.padEnd(44) + amt;
+  }).join('\n');
   const totalUsed = yearOrders.reduce((s,o)=>s+Number(o.amount),0);
   return { historyRows, totalUsed: money(totalUsed), totalAllowance: money(allowance) };
 }
