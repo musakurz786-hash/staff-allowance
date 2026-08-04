@@ -136,7 +136,7 @@
           <div class="field"><label>Allowance (0 for discount-only staff)</label><input type="number" id="newStaffAllowance" value="0"></div>
           <button class="secondary" onclick="addStaff()">Add</button>
         </div>
-        <table class="admin" id="staffTable"><thead><tr><th>Name</th><th>Email</th><th>Period</th><th>Allowance</th><th>Balance</th></tr></thead><tbody></tbody></table>
+        <table class="admin" id="staffTable"><thead><tr><th>Name</th><th>Email</th><th>Period</th><th>Allowance</th><th>Balance</th><th></th></tr></thead><tbody></tbody></table>
       </div>
 
       <div class="admin-section">
@@ -435,7 +435,8 @@ async function loadStaffTable(){
     const emailInput = '<input type="text" value="'+escapeHtml(s.email||'')+'" placeholder="name@freedomofmovement.co.za" '+
       'style="width:100%;padding:6px 8px;font-size:12px;border:1px solid #ccc;border-radius:3px" '+
       'onblur="saveStaffEmail(\''+s.name.replace(/'/g,"\\'")+'\', this.value)">';
-    return '<tr><td>'+escapeHtml(s.name)+'</td><td>'+emailInput+'</td><td>'+escapeHtml(s.period)+'</td><td>R'+money(s.allowance)+'</td><td>'+balText+'</td></tr>';
+    return '<tr><td>'+escapeHtml(s.name)+'</td><td>'+emailInput+'</td><td>'+escapeHtml(s.period)+'</td><td>R'+money(s.allowance)+'</td><td>'+balText+'</td>'+
+      '<td><button class="secondary" onclick="sendBalanceCopy(\''+s.name.replace(/'/g,"\\'")+'\')">Send Balance</button></td></tr>';
   }).join('');
 }
 
@@ -472,6 +473,27 @@ async function saveStaffEmail(name, email){
   }catch(e){
     console.error(e);
     toast('Could not save that email', true);
+  }
+}
+
+async function sendBalanceCopy(name){
+  const staffRows = await sb('GET','staff?select=*&name=eq.'+encodeURIComponent(name));
+  const person = staffRows[0];
+  if(!person){ toast('Could not find that staff member', true); return; }
+  if(!person.email){ toast(name+' has no email on file', true); return; }
+  const toList = [person.email, CONFIG.MANAGER_EMAIL].filter((v,i,a)=>v && a.indexOf(v)===i).join(', ');
+  try{
+    const summary = await buildAllowanceSummary(person.name, person.period, person.allowance);
+    await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID_BALANCE || CONFIG.EMAILJS_TEMPLATE_ID, {
+      to_email: toList, email: toList, staff_name: person.name,
+      order_date: new Date().toLocaleDateString('en-ZA', {year:'numeric',month:'long',day:'numeric'}),
+      period: person.period, total_allowance: summary.totalAllowance, total_used: summary.totalUsed,
+      balance_after: money(person.balance), history_rows: summary.historyRows
+    }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
+    toast('Balance copy sent to '+name);
+  }catch(e){
+    console.error(e);
+    toast('Could not send balance copy', true);
   }
 }
 
