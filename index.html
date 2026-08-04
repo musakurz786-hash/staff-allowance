@@ -156,7 +156,7 @@
         <p style="font-size:13px;color:var(--grey);margin-top:-8px">Cancelling an order deletes it and, for Staff Allowance orders, automatically refunds the amount to that person's balance. For an exchange, cancel the wrong item then have them place a new order.</p>
         <button class="secondary" onclick="loadOrderHistory()">Refresh</button>
         <table class="admin" id="historyTable">
-          <thead><tr><th>Date</th><th>Staff</th><th>Product</th><th>Qty</th><th>Type</th><th>Amount</th><th></th></tr></thead>
+          <thead><tr><th>Date</th><th>Staff</th><th>Product</th><th>Qty</th><th>Type</th><th>Amount</th><th>Cin7 Invoice</th><th></th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -567,18 +567,22 @@ async function savePriceEdit(sku){
   }
 }
 
+function invoiceCellHtml(o, scope){
+  const inputId = 'invFile-'+scope+'-'+o.id;
+  return o.invoice_url
+    ? '<a href="'+o.invoice_url+'" target="_blank">View</a> &middot; <button class="secondary" onclick="emailInvoiceLink('+o.id+')">Email</button>'
+    : '<input type="file" accept="application/pdf" id="'+inputId+'" style="max-width:110px;font-size:11px"> <button class="secondary" onclick="uploadInvoice('+o.id+',\''+scope+'\')">Upload</button>';
+}
+
 let discountRows = [];
 async function loadDiscountReport(){
   discountRows = await sb('GET','orders?select=*&order_type=eq.discount&order=created_at.desc&limit=500');
   const tbody = document.querySelector('#discountTable tbody');
   tbody.innerHTML = discountRows.map(o=>{
     const discountAmt = o.rsp*o.qty*CONFIG.DISCOUNT_RATE;
-    const invoiceCell = o.invoice_url
-      ? '<a href="'+o.invoice_url+'" target="_blank">View</a> &middot; <button class="secondary" onclick="emailInvoiceLink('+o.id+')">Email</button>'
-      : '<input type="file" accept="application/pdf" id="invFile'+o.id+'" style="max-width:110px;font-size:11px"> <button class="secondary" onclick="uploadInvoice('+o.id+')">Upload</button>';
     return '<tr><td>'+new Date(o.created_at).toLocaleDateString('en-ZA')+'</td><td>'+escapeHtml(o.staff_name)+'</td>'+
       '<td>'+escapeHtml(o.product)+'</td><td>'+o.qty+'</td><td>R'+money(o.rsp*o.qty)+'</td>'+
-      '<td>R'+money(discountAmt)+'</td><td>R'+money(o.amount)+'</td><td>'+invoiceCell+'</td>'+
+      '<td>R'+money(discountAmt)+'</td><td>R'+money(o.amount)+'</td><td>'+invoiceCellHtml(o,'discount')+'</td>'+
       '<td><button class="secondary" onclick="cancelOrder('+o.id+')">Delete</button></td></tr>';
   }).join('');
   const totalRsp = discountRows.reduce((s,o)=>s+o.rsp*o.qty,0);
@@ -588,8 +592,8 @@ async function loadDiscountReport(){
     discountRows.length+' orders — Total RSP R'+money(totalRsp)+' — Total Discount R'+money(totalDiscount)+' — Total Payable R'+money(totalPayable);
 }
 
-async function uploadInvoice(id){
-  const input = document.getElementById('invFile'+id);
+async function uploadInvoice(id, scope){
+  const input = document.getElementById('invFile-'+scope+'-'+id);
   if(!input.files.length){ toast('Choose a PDF first', true); return; }
   const file = input.files[0];
   const path = id+'-'+Date.now()+'-'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
@@ -604,6 +608,7 @@ async function uploadInvoice(id){
     await sb('PATCH','orders?id=eq.'+id, {invoice_url: publicUrl, invoiced: true});
     toast('Invoice uploaded');
     loadDiscountReport();
+    loadOrderHistory();
   }catch(e){
     console.error(e);
     toast('Could not upload invoice', true);
@@ -611,21 +616,32 @@ async function uploadInvoice(id){
 }
 
 async function emailInvoiceLink(id){
-  const order = discountRows.find(o=>o.id===id);
+  const order = historyRows.find(o=>o.id===id) || discountRows.find(o=>o.id===id);
   if(!order || !order.invoice_url) return;
   const staffRows = await sb('GET','staff?select=*&name=eq.'+encodeURIComponent(order.staff_name));
   const person = staffRows[0];
   const toList = [person && person.email, CONFIG.MANAGER_EMAIL, CONFIG.WAREHOUSE_EMAIL].filter((v,i,a)=>v && a.indexOf(v)===i).join(', ');
+  const orderDate = new Date(order.created_at).toLocaleDateString('en-ZA', {year:'numeric',month:'long',day:'numeric'});
   try{
-    const discountAmt = order.rsp*order.qty*CONFIG.DISCOUNT_RATE;
-    const templateId = CONFIG.EMAILJS_TEMPLATE_ID_DISCOUNT || CONFIG.EMAILJS_TEMPLATE_ID;
-    await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, templateId, {
-      to_email: toList, email: toList, staff_name: order.staff_name,
-      order_date: new Date(order.created_at).toLocaleDateString('en-ZA', {year:'numeric',month:'long',day:'numeric'}),
-      product: order.product, sku: order.sku||'', qty: order.qty,
-      rsp: money(order.rsp*order.qty), discount_amount: money(discountAmt), amount: money(order.amount),
-      invoice_line: 'Cin7 Invoice: '+order.invoice_url
-    }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
+    if(order.order_type === 'discount'){
+      const discountAmt = order.rsp*order.qty*CONFIG.DISCOUNT_RATE;
+      await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID_DISCOUNT || CONFIG.EMAILJS_TEMPLATE_ID, {
+        to_email: toList, email: toList, staff_name: order.staff_name, order_date: orderDate,
+        product: order.product, sku: order.sku||'', qty: order.qty,
+        rsp: money(order.rsp*order.qty), discount_amount: money(discountAmt), amount: money(order.amount),
+        invoice_line: 'Cin7 Invoice: '+order.invoice_url
+      }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
+    } else {
+      const summary = person ? await buildAllowanceSummary(person.name, person.period, person.allowance) : {historyRows:'', totalUsed:'0,00', totalAllowance:'0,00'};
+      const bal = person ? money(person.balance) : '';
+      await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID, {
+        to_email: toList, email: toList, staff_name: order.staff_name, order_date: orderDate,
+        product: order.product, sku: order.sku||'', qty: order.qty, order_type: 'Staff Allowance',
+        rsp: money(order.rsp), amount: money(order.amount), balance_before: bal, balance_after: bal,
+        period: order.period, total_allowance: summary.totalAllowance, total_used: summary.totalUsed,
+        history_rows: summary.historyRows, invoice_line: 'Cin7 Invoice: '+order.invoice_url
+      }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
+    }
     toast('Invoice emailed');
   }catch(e){
     console.error(e);
@@ -641,6 +657,7 @@ async function loadOrderHistory(){
     '<tr><td>'+new Date(o.created_at).toLocaleDateString('en-ZA')+'</td><td>'+escapeHtml(o.staff_name)+'</td>'+
     '<td>'+escapeHtml(o.product)+'</td><td>'+o.qty+'</td>'+
     '<td>'+(o.order_type==='allowance'?'Allowance':'Discount')+'</td><td>R'+money(o.amount)+'</td>'+
+    '<td>'+invoiceCellHtml(o,'history')+'</td>'+
     '<td><button class="secondary" onclick="cancelOrder('+o.id+')">Cancel</button></td></tr>'
   ).join('');
 }
