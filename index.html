@@ -443,7 +443,7 @@ async function submitCart(){
         rsp: money(totalRsp), amount: money(amount),
         balance_before: money(balanceBefore), balance_after: money(balanceAfter),
         period: selectedStaff.period, total_allowance: summary.totalAllowance, total_used: summary.totalUsed,
-        history_rows: summary.historyRows, invoice_line: '', items_rows: itemsRows
+        history_rows: summary.historyRows, invoice_prefix: '', invoice_url: '', invoice_label: '', items_rows: itemsRows
       }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
     }
 
@@ -546,7 +546,7 @@ async function sendBalanceCopy(name){
       order_date: new Date().toLocaleDateString('en-ZA', {year:'numeric',month:'long',day:'numeric'}),
       product: 'Balance Summary (no new purchase)', sku: '-', qty: '-',
       order_type: 'Balance Summary', rsp: '0,00', amount: '0,00',
-      balance_before: bal, balance_after: bal, invoice_line: '',
+      balance_before: bal, balance_after: bal, invoice_prefix: '', invoice_url: '', invoice_label: '',
       period: person.period, total_allowance: summary.totalAllowance, total_used: summary.totalUsed,
       history_rows: summary.historyRows, items_rows: ''
     }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
@@ -752,7 +752,7 @@ async function emailInvoiceLink(groupKey, scope){
         to_email: toList, email: toList, staff_name: group.staff_name, order_date: orderDate,
         product: group.orders.length+' item'+(group.orders.length>1?'s':''), sku: '-', qty: totalQty,
         rsp: money(totalRsp), discount_amount: money(totalDiscount), amount: money(totalPayable),
-        items_rows: itemsRows, invoice_line: 'Cin7 Invoice: '+group.invoice_url
+        items_rows: itemsRows, invoice_prefix: 'Cin7 Invoice: ', invoice_url: group.invoice_url, invoice_label: 'Invoice attached'
       }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
     } else {
       const summary = person ? await buildAllowanceSummary(person.name, person.period, person.allowance) : {historyRows:'', totalUsed:'0,00', totalAllowance:'0,00'};
@@ -768,7 +768,7 @@ async function emailInvoiceLink(groupKey, scope){
         product: group.orders.length+' item'+(group.orders.length>1?'s':''), sku: '-', qty: totalQty, order_type: 'Staff Allowance',
         rsp: money(totalAmount), amount: money(totalAmount), balance_before: bal, balance_after: bal,
         period: group.orders[0].period, total_allowance: summary.totalAllowance, total_used: summary.totalUsed,
-        history_rows: summary.historyRows, invoice_line: 'Cin7 Invoice: '+group.invoice_url, items_rows: itemsRows
+        history_rows: summary.historyRows, invoice_prefix: 'Cin7 Invoice: ', invoice_url: group.invoice_url, invoice_label: 'Invoice attached', items_rows: itemsRows
       }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
     }
     toast('Invoice emailed');
