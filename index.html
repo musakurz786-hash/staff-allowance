@@ -411,12 +411,14 @@ async function submitCart(){
       selectedStaff.balance = balanceAfter;
     }
 
-    // one order row per cart item, so each keeps its own real SKU/RSP for reporting and invoicing
+    // one order row per cart item (so each keeps its own real SKU/RSP for reporting), but all
+    // tagged with the same group id so the whole cart shares one Cin7 invoice and one email
+    const groupId = selectedStaff.name.replace(/\s+/g,'')+'-'+Date.now();
     const rows = cart.map(c => ({
       staff_name: selectedStaff.name, sku: c.sku, product: c.product, qty: c.qty,
       order_type: orderType, rsp: c.rsp,
       amount: orderType === 'allowance' ? c.rsp*c.qty : c.rsp*c.qty*(1-CONFIG.DISCOUNT_RATE),
-      period: selectedStaff.period
+      period: selectedStaff.period, order_group_id: groupId
     }));
     await sb('POST','orders', rows, {'Prefer':'return=minimal'});
 
@@ -655,36 +657,59 @@ async function savePriceEdit(sku){
   }
 }
 
-function invoiceCellHtml(o, scope){
-  const inputId = 'invFile-'+scope+'-'+o.id;
-  return o.invoice_url
-    ? '<a href="'+o.invoice_url+'" target="_blank">View</a> &middot; <button class="secondary" onclick="emailInvoiceLink('+o.id+')">Email</button>'
-    : '<input type="file" accept="application/pdf" id="'+inputId+'" style="max-width:110px;font-size:11px"> <button class="secondary" onclick="uploadInvoice('+o.id+',\''+scope+'\')">Upload</button>';
+// groups a flat list of orders by cart (order_group_id), falling back to one-order-per-group
+// for older rows placed before this feature existed
+function groupByCart(rows){
+  const groups = {};
+  const order = [];
+  rows.forEach(o=>{
+    const key = o.order_group_id || ('single-'+o.id);
+    if(!groups[key]){ groups[key] = {key, staff_name:o.staff_name, created_at:o.created_at, invoice_url:o.invoice_url, invoiced:o.invoiced, orders:[]}; order.push(key); }
+    groups[key].orders.push(o);
+    if(o.invoice_url) groups[key].invoice_url = o.invoice_url;
+  });
+  return order.map(k=>groups[k]);
+}
+
+function invoiceCellHtml(g, scope){
+  const inputId = 'invFile-'+scope+'-'+g.key;
+  return g.invoice_url
+    ? '<a href="'+g.invoice_url+'" target="_blank">View</a> &middot; <button class="secondary" onclick="emailInvoiceLink(\''+g.key+'\',\''+scope+'\')">Email</button>'
+    : '<input type="file" accept="application/pdf" id="'+inputId+'" style="max-width:110px;font-size:11px"> <button class="secondary" onclick="uploadInvoice(\''+g.key+'\',\''+scope+'\')">Upload</button>';
 }
 
 let discountRows = [];
+let discountGroups = [];
 async function loadDiscountReport(){
   discountRows = await sb('GET','orders?select=*&order_type=eq.discount&order=created_at.desc&limit=500');
+  discountGroups = groupByCart(discountRows);
   const tbody = document.querySelector('#discountTable tbody');
-  tbody.innerHTML = discountRows.map(o=>{
-    const discountAmt = o.rsp*o.qty*CONFIG.DISCOUNT_RATE;
-    return '<tr><td>'+new Date(o.created_at).toLocaleDateString('en-ZA')+'</td><td>'+escapeHtml(o.staff_name)+'</td>'+
-      '<td>'+escapeHtml(o.product)+'</td><td>'+o.qty+'</td><td>R'+money(o.rsp*o.qty)+'</td>'+
-      '<td>R'+money(discountAmt)+'</td><td>R'+money(o.amount)+'</td><td>'+invoiceCellHtml(o,'discount')+'</td>'+
-      '<td><button class="secondary" onclick="cancelOrder('+o.id+')">Delete</button></td></tr>';
+  tbody.innerHTML = discountGroups.map(g=>{
+    const totalRsp = g.orders.reduce((s,o)=>s+o.rsp*o.qty,0);
+    const totalDiscount = totalRsp*CONFIG.DISCOUNT_RATE;
+    const totalPayable = g.orders.reduce((s,o)=>s+Number(o.amount),0);
+    const totalQty = g.orders.reduce((s,o)=>s+o.qty,0);
+    const productLabel = g.orders.length===1 ? escapeHtml(g.orders[0].product)
+      : g.orders.length+' items: '+g.orders.map(o=>escapeHtml(o.product)).join(', ');
+    return '<tr><td>'+new Date(g.created_at).toLocaleDateString('en-ZA')+'</td><td>'+escapeHtml(g.staff_name)+'</td>'+
+      '<td>'+productLabel+'</td><td>'+totalQty+'</td><td>R'+money(totalRsp)+'</td>'+
+      '<td>R'+money(totalDiscount)+'</td><td>R'+money(totalPayable)+'</td><td>'+invoiceCellHtml(g,'discount')+'</td>'+
+      '<td><button class="secondary" onclick="deleteCartGroup(\''+g.key+'\')">Delete</button></td></tr>';
   }).join('');
   const totalRsp = discountRows.reduce((s,o)=>s+o.rsp*o.qty,0);
-  const totalDiscount = discountRows.reduce((s,o)=>s+o.rsp*o.qty*CONFIG.DISCOUNT_RATE,0);
+  const totalDiscount = totalRsp*CONFIG.DISCOUNT_RATE;
   const totalPayable = discountRows.reduce((s,o)=>s+Number(o.amount),0);
   document.getElementById('discountTotals').textContent =
-    discountRows.length+' orders — Total RSP R'+money(totalRsp)+' — Total Discount R'+money(totalDiscount)+' — Total Payable R'+money(totalPayable);
+    discountGroups.length+' order'+(discountGroups.length===1?'':'s')+' ('+discountRows.length+' items) — Total RSP R'+money(totalRsp)+' — Total Discount R'+money(totalDiscount)+' — Total Payable R'+money(totalPayable);
 }
 
-async function uploadInvoice(id, scope){
-  const input = document.getElementById('invFile-'+scope+'-'+id);
+async function uploadInvoice(groupKey, scope){
+  const input = document.getElementById('invFile-'+scope+'-'+groupKey);
   if(!input.files.length){ toast('Choose a PDF first', true); return; }
+  const group = (scope==='discount'?discountGroups:historyGroups).find(g=>g.key===groupKey);
+  if(!group) return;
   const file = input.files[0];
-  const path = id+'-'+Date.now()+'-'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+  const path = groupKey+'-'+Date.now()+'-'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
   try{
     const buf = await file.arrayBuffer();
     const r = await fetch(CONFIG.SB_URL+'/storage/v1/object/invoices/'+path, {
@@ -693,8 +718,9 @@ async function uploadInvoice(id, scope){
     });
     if(!r.ok) throw new Error(await r.text());
     const publicUrl = CONFIG.SB_URL+'/storage/v1/object/public/invoices/'+path;
-    await sb('PATCH','orders?id=eq.'+id, {invoice_url: publicUrl, invoiced: true});
-    toast('Invoice uploaded');
+    const ids = group.orders.map(o=>o.id).join(',');
+    await sb('PATCH','orders?id=in.('+ids+')', {invoice_url: publicUrl, invoiced: true});
+    toast('Invoice uploaded — covers all '+group.orders.length+' item(s) in this order');
     loadDiscountReport();
     loadOrderHistory();
   }catch(e){
@@ -703,31 +729,46 @@ async function uploadInvoice(id, scope){
   }
 }
 
-async function emailInvoiceLink(id){
-  const order = historyRows.find(o=>o.id===id) || discountRows.find(o=>o.id===id);
-  if(!order || !order.invoice_url) return;
-  const staffRows = await sb('GET','staff?select=*&name=eq.'+encodeURIComponent(order.staff_name));
+async function emailInvoiceLink(groupKey, scope){
+  const group = (scope==='discount'?discountGroups:historyGroups).find(g=>g.key===groupKey);
+  if(!group || !group.invoice_url) return;
+  const staffRows = await sb('GET','staff?select=*&name=eq.'+encodeURIComponent(group.staff_name));
   const person = staffRows[0];
   const toList = [person && person.email, CONFIG.MANAGER_EMAIL, CONFIG.WAREHOUSE_EMAIL].filter((v,i,a)=>v && a.indexOf(v)===i).join(', ');
-  const orderDate = new Date(order.created_at).toLocaleDateString('en-ZA', {year:'numeric',month:'long',day:'numeric'});
+  const orderDate = new Date(group.created_at).toLocaleDateString('en-ZA', {year:'numeric',month:'long',day:'numeric'});
+  const isDiscount = group.orders[0].order_type === 'discount';
+  const totalQty = group.orders.reduce((s,o)=>s+o.qty,0);
   try{
-    if(order.order_type === 'discount'){
-      const discountAmt = order.rsp*order.qty*CONFIG.DISCOUNT_RATE;
+    if(isDiscount){
+      const totalRsp = group.orders.reduce((s,o)=>s+o.rsp*o.qty,0);
+      const totalDiscount = totalRsp*CONFIG.DISCOUNT_RATE;
+      const totalPayable = group.orders.reduce((s,o)=>s+Number(o.amount),0);
+      const itemsRows = group.orders.map(o=>{
+        let item = o.product + (o.qty>1?' (x'+o.qty+')':'');
+        if(item.length>42) item = item.slice(0,41)+'…';
+        return item.padEnd(44) + ('R'+money(o.amount)).padStart(12);
+      }).join('\n');
       await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID_DISCOUNT || CONFIG.EMAILJS_TEMPLATE_ID, {
-        to_email: toList, email: toList, staff_name: order.staff_name, order_date: orderDate,
-        product: order.product, sku: order.sku||'', qty: order.qty,
-        rsp: money(order.rsp*order.qty), discount_amount: money(discountAmt), amount: money(order.amount),
-        invoice_line: 'Cin7 Invoice: '+order.invoice_url
+        to_email: toList, email: toList, staff_name: group.staff_name, order_date: orderDate,
+        product: group.orders.length+' item'+(group.orders.length>1?'s':''), sku: '-', qty: totalQty,
+        rsp: money(totalRsp), discount_amount: money(totalDiscount), amount: money(totalPayable),
+        items_rows: itemsRows, invoice_line: 'Cin7 Invoice: '+group.invoice_url
       }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
     } else {
       const summary = person ? await buildAllowanceSummary(person.name, person.period, person.allowance) : {historyRows:'', totalUsed:'0,00', totalAllowance:'0,00'};
       const bal = person ? money(person.balance) : '';
+      const totalAmount = group.orders.reduce((s,o)=>s+Number(o.amount),0);
+      const itemsRows = group.orders.map(o=>{
+        let item = o.product + (o.qty>1?' (x'+o.qty+')':'');
+        if(item.length>42) item = item.slice(0,41)+'…';
+        return item.padEnd(44) + ('R'+money(o.amount)).padStart(12);
+      }).join('\n');
       await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID, {
-        to_email: toList, email: toList, staff_name: order.staff_name, order_date: orderDate,
-        product: order.product, sku: order.sku||'', qty: order.qty, order_type: 'Staff Allowance',
-        rsp: money(order.rsp), amount: money(order.amount), balance_before: bal, balance_after: bal,
-        period: order.period, total_allowance: summary.totalAllowance, total_used: summary.totalUsed,
-        history_rows: summary.historyRows, invoice_line: 'Cin7 Invoice: '+order.invoice_url, items_rows: ''
+        to_email: toList, email: toList, staff_name: group.staff_name, order_date: orderDate,
+        product: group.orders.length+' item'+(group.orders.length>1?'s':''), sku: '-', qty: totalQty, order_type: 'Staff Allowance',
+        rsp: money(totalAmount), amount: money(totalAmount), balance_before: bal, balance_after: bal,
+        period: group.orders[0].period, total_allowance: summary.totalAllowance, total_used: summary.totalUsed,
+        history_rows: summary.historyRows, invoice_line: 'Cin7 Invoice: '+group.invoice_url, items_rows: itemsRows
       }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
     }
     toast('Invoice emailed');
@@ -738,44 +779,54 @@ async function emailInvoiceLink(id){
 }
 
 let historyRows = [];
+let historyGroups = [];
 async function loadOrderHistory(){
   historyRows = await sb('GET','orders?select=*&order=created_at.desc&limit=200');
+  historyGroups = groupByCart(historyRows);
   const tbody = document.querySelector('#historyTable tbody');
-  tbody.innerHTML = historyRows.map(o=>
-    '<tr><td>'+new Date(o.created_at).toLocaleDateString('en-ZA')+'</td><td>'+escapeHtml(o.staff_name)+'</td>'+
-    '<td>'+escapeHtml(o.product)+'</td><td>'+o.qty+'</td>'+
-    '<td>'+(o.order_type==='allowance'?'Allowance':'Discount')+'</td><td>R'+money(o.amount)+'</td>'+
-    '<td>'+invoiceCellHtml(o,'history')+'</td>'+
-    '<td><button class="secondary" onclick="cancelOrder('+o.id+')">Cancel</button></td></tr>'
-  ).join('');
+  tbody.innerHTML = historyGroups.map(g=>{
+    const totalQty = g.orders.reduce((s,o)=>s+o.qty,0);
+    const totalAmount = g.orders.reduce((s,o)=>s+Number(o.amount),0);
+    const productLabel = g.orders.length===1 ? escapeHtml(g.orders[0].product)
+      : g.orders.length+' items: '+g.orders.map(o=>escapeHtml(o.product)).join(', ');
+    return '<tr><td>'+new Date(g.created_at).toLocaleDateString('en-ZA')+'</td><td>'+escapeHtml(g.staff_name)+'</td>'+
+      '<td>'+productLabel+'</td><td>'+totalQty+'</td>'+
+      '<td>'+(g.orders[0].order_type==='allowance'?'Allowance':'Discount')+'</td><td>R'+money(totalAmount)+'</td>'+
+      '<td>'+invoiceCellHtml(g,'history')+'</td>'+
+      '<td><button class="secondary" onclick="deleteCartGroup(\''+g.key+'\')">Cancel</button></td></tr>';
+  }).join('');
 }
 
-async function cancelOrder(id){
-  const order = historyRows.find(o=>o.id===id) || discountRows.find(o=>o.id===id);
-  if(!order) return;
+async function deleteCartGroup(groupKey){
+  const g = discountGroups.find(x=>x.key===groupKey) || historyGroups.find(x=>x.key===groupKey);
+  if(!g || !g.orders.length) return;
+  const first = g.orders[0];
   // historical (pre-app, backfilled) orders never refund: the person's balance was seeded as a
-  // fixed number that already accounts for these, so "cancelling" one must just delete the record.
-  const willRefund = order.order_type === 'allowance' && !order.is_historical;
-  const confirmMsg = order.is_historical
-    ? 'Delete this historical record for '+order.staff_name+' ('+order.product+')? This is a backfilled entry — no balance change will happen.'
-    : 'Cancel this order for '+order.staff_name+' ('+order.product+')?'+(willRefund ? ' R'+money(order.amount)+' will be refunded to their balance.' : '');
+  // fixed number that already accounts for these, so deleting one must just remove the record.
+  const willRefund = first.order_type === 'allowance' && !first.is_historical;
+  const refundTotal = g.orders.reduce((s,o)=>s+Number(o.amount),0);
+  const itemCount = g.orders.length+' item'+(g.orders.length>1?'s':'');
+  const confirmMsg = first.is_historical
+    ? 'Delete this historical record ('+itemCount+') for '+first.staff_name+'? No balance change will happen.'
+    : 'Delete this order ('+itemCount+') for '+first.staff_name+'?'+(willRefund ? ' R'+money(refundTotal)+' will be refunded to their balance.' : '');
   if(!confirm(confirmMsg)) return;
   try{
     if(willRefund){
-      const rows = await sb('GET','staff?select=*&name=eq.'+encodeURIComponent(order.staff_name));
+      const rows = await sb('GET','staff?select=*&name=eq.'+encodeURIComponent(first.staff_name));
       if(rows[0]){
-        const newBalance = Number(rows[0].balance) + Number(order.amount);
-        await sb('PATCH','staff?name=eq.'+encodeURIComponent(order.staff_name), {balance: newBalance});
+        const newBalance = Number(rows[0].balance) + refundTotal;
+        await sb('PATCH','staff?name=eq.'+encodeURIComponent(first.staff_name), {balance: newBalance});
       }
     }
-    await sb('DELETE','orders?id=eq.'+id, null, {'Prefer':'return=minimal'});
-    toast(order.is_historical ? 'Historical record deleted' : 'Order cancelled'+(willRefund?' and balance refunded':''));
+    const ids = g.orders.map(o=>o.id).join(',');
+    await sb('DELETE','orders?id=in.('+ids+')', null, {'Prefer':'return=minimal'});
+    toast(first.is_historical ? 'Historical record deleted' : 'Order deleted'+(willRefund?' and balance refunded':''));
     loadOrderHistory();
     loadDiscountReport();
     loadStaffTable();
   }catch(e){
     console.error(e);
-    toast('Could not cancel this order', true);
+    toast('Could not delete this order', true);
   }
 }
 
