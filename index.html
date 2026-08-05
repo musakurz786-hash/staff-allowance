@@ -272,11 +272,16 @@ function onSearch(){
   results.innerHTML = matches.map(p => {
     const out = Number(p.available) <= 0;
     const unpriced = !(Number(p.rsp) > 0);
+    const disabled = out || unpriced;
     const statusText = unpriced ? 'Not priced yet' : (out ? 'Out of stock' : Math.floor(p.available)+' available');
-    return '<div class="result-row'+(out||unpriced?' out':'')+'" onclick="selectProduct(\''+p.sku.replace(/'/g,"\\'")+'\')">'+
+    const skuJs = p.sku.replace(/'/g,"\\'");
+    return '<div class="result-row'+(disabled?' out':'')+'" style="cursor:default">'+
       '<div><div class="name">'+escapeHtml(p.product)+'</div>'+
       '<div class="meta">SKU '+escapeHtml(p.sku)+' &middot; '+escapeHtml(p.category||'')+' &middot; '+statusText+'</div></div>'+
-      '<div class="rsp">'+(unpriced?'&mdash;':'R'+money(p.rsp))+'</div></div>';
+      '<div class="row-flex" style="gap:10px;align-items:center">'+
+        '<div class="rsp">'+(unpriced?'&mdash;':'R'+money(p.rsp))+'</div>'+
+        (disabled?'':'<button class="secondary" onclick="selectProduct(\''+skuJs+'\')">+ Add</button>')+
+      '</div></div>';
   }).join('');
 }
 
@@ -330,6 +335,7 @@ function renderCart(){
   document.getElementById('orderPanel').innerHTML =
     '<div class="order-panel">'+
       '<h3>Cart ('+cart.length+' item'+(cart.length>1?'s':'')+')</h3>'+
+      '<p style="font-size:12px;color:var(--grey);margin:-8px 0 16px">Search above and click <strong>+ Add</strong> to add more items to this order.</p>'+
       '<div style="margin-bottom:16px">'+rows+'</div>'+
       toggle+
       '<div id="amounts"></div>'+
