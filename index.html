@@ -271,10 +271,12 @@ function onSearch(){
   if(!matches.length){ results.innerHTML = '<div class="empty">No products match "'+escapeHtml(q)+'"</div>'; return; }
   results.innerHTML = matches.map(p => {
     const out = Number(p.available) <= 0;
-    return '<div class="result-row'+(out?' out':'')+'" onclick="selectProduct(\''+p.sku.replace(/'/g,"\\'")+'\')">'+
+    const unpriced = !(Number(p.rsp) > 0);
+    const statusText = unpriced ? 'Not priced yet' : (out ? 'Out of stock' : Math.floor(p.available)+' available');
+    return '<div class="result-row'+(out||unpriced?' out':'')+'" onclick="selectProduct(\''+p.sku.replace(/'/g,"\\'")+'\')">'+
       '<div><div class="name">'+escapeHtml(p.product)+'</div>'+
-      '<div class="meta">SKU '+escapeHtml(p.sku)+' &middot; '+escapeHtml(p.category||'')+' &middot; '+(out?'Out of stock':Math.floor(p.available)+' available')+'</div></div>'+
-      '<div class="rsp">R'+money(p.rsp)+'</div></div>';
+      '<div class="meta">SKU '+escapeHtml(p.sku)+' &middot; '+escapeHtml(p.category||'')+' &middot; '+statusText+'</div></div>'+
+      '<div class="rsp">'+(unpriced?'&mdash;':'R'+money(p.rsp))+'</div></div>';
   }).join('');
 }
 
@@ -284,6 +286,10 @@ function selectProduct(sku){
   if(!selectedStaff){ toast('Select your name first', true); return; }
   const p = PRODUCTS.find(p=>p.sku===sku);
   if(!p) return;
+  if(!(Number(p.rsp) > 0)){
+    toast('This item isn\'t priced yet — check with admin before it can be ordered', true);
+    return;
+  }
   const existing = cart.find(c=>c.sku===sku);
   if(existing) existing.qty += 1;
   else cart.push({sku:p.sku, product:p.product, rsp:Number(p.rsp), qty:1});
@@ -577,20 +583,28 @@ async function importStockFile(){
   const existingBySku = {};
   PRODUCTS.forEach(p => existingBySku[p.sku] = p);
 
+  // non-merchandise rows (services, hardware, fees) — never orderable, skip on import so they
+  // don't pollute the catalog with R0 placeholder entries
+  const nonMerchSku = /^(curbon-offset|10001|GiftCard|Gift-card.*|R\d+-Personalisation|ShippingEconomyDomesticRoadFreight|ShippingFlatRate)$/i;
+  const nonMerchProduct = /^(Repairs?[:\s]|Zebra |RFD40|RFID |3yrs Zebra|Power Supply Brick|DC Cable For|Personalisation:|.*license fees)/i;
+
   const updates = [];
+  let skippedJunk = 0;
   for(let i=headerIdx+1;i<rows.length;i++){
     const r = rows[i];
     const sku = r[skuCol] ? String(r[skuCol]).trim() : '';
     if(!sku) continue;
+    const productName = String(r[productCol]||'').trim();
+    if(nonMerchSku.test(sku) || nonMerchProduct.test(productName)){ skippedJunk++; continue; }
     const existing = existingBySku[sku];
     const available = availCol >= 0 ? Number(r[availCol])||0 : (existing? existing.available : 0);
     updates.push({
-      sku, product: (r[productCol]||(existing?existing.product:'')), category: existing?existing.category:null,
+      sku, product: (productName||(existing?existing.product:'')), category: existing?existing.category:null,
       subcat: existing?existing.subcat:null, rsp: existing? existing.rsp : 0, available, updated_at: new Date().toISOString()
     });
   }
 
-  status.textContent = 'Updating '+updates.length+' products...';
+  status.textContent = 'Updating '+updates.length+' products ('+skippedJunk+' non-merchandise rows skipped)...';
   const batchSize = 500;
   for(let i=0;i<updates.length;i+=batchSize){
     const batch = updates.slice(i,i+batchSize);
