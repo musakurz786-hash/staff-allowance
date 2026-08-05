@@ -225,7 +225,7 @@ function showView(name){
 let STAFF = [];
 let PRODUCTS = [];
 let selectedStaff = null;
-let selectedProduct = null;
+let cart = []; // [{sku, product, rsp, qty}] — one cart, one order type at a time
 let orderType = 'allowance';
 
 async function initOrderView(){
@@ -259,7 +259,7 @@ function onStaffChange(){
   balEl.className = 'value'+(selectedStaff.balance <= 0 ? ' low' : '');
   document.getElementById('balPeriod').textContent = selectedStaff.period;
   document.getElementById('orderPanel').innerHTML = '';
-  selectedProduct = null;
+  cart = [];
 }
 
 function onSearch(){
@@ -282,54 +282,76 @@ function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;',
 
 function selectProduct(sku){
   if(!selectedStaff){ toast('Select your name first', true); return; }
-  selectedProduct = PRODUCTS.find(p=>p.sku===sku);
-  if(!selectedProduct) return;
-  orderType = selectedStaff.allowance > 0 ? 'allowance' : 'discount';
-  renderOrderPanel();
+  const p = PRODUCTS.find(p=>p.sku===sku);
+  if(!p) return;
+  const existing = cart.find(c=>c.sku===sku);
+  if(existing) existing.qty += 1;
+  else cart.push({sku:p.sku, product:p.product, rsp:Number(p.rsp), qty:1});
+  if(cart.length === 1) orderType = selectedStaff.allowance > 0 ? 'allowance' : 'discount';
+  renderCart();
+  toast(p.product+' added');
 }
 
-function renderOrderPanel(){
-  const p = selectedProduct;
+function removeFromCart(sku){
+  cart = cart.filter(c=>c.sku!==sku);
+  renderCart();
+}
+
+function updateCartQty(sku, qty){
+  const item = cart.find(c=>c.sku===sku);
+  if(item) item.qty = Math.max(1, parseInt(qty)||1);
+  renderCartTotals();
+}
+
+function renderCart(){
+  if(!cart.length){ document.getElementById('orderPanel').innerHTML = ''; return; }
   const hasAllowance = selectedStaff.allowance > 0;
   const toggle = hasAllowance
     ? '<div class="type-toggle">'+
-        '<button id="typeAllowance" class="active" onclick="setOrderType(\'allowance\')">Staff Allowance</button>'+
-        '<button id="typeDiscount" onclick="setOrderType(\'discount\')">Staff Discount ('+Math.round(CONFIG.DISCOUNT_RATE*100)+'%)</button>'+
+        '<button id="typeAllowance" class="'+(orderType==='allowance'?'active':'')+'" onclick="setOrderType(\'allowance\')">Staff Allowance</button>'+
+        '<button id="typeDiscount" class="'+(orderType==='discount'?'active':'')+'" onclick="setOrderType(\'discount\')">Staff Discount ('+Math.round(CONFIG.DISCOUNT_RATE*100)+'%)</button>'+
       '</div>'
     : '<p style="font-size:12px;color:var(--grey);margin:-8px 0 18px">No staff allowance on file — this will go through as a Staff Discount ('+Math.round(CONFIG.DISCOUNT_RATE*100)+'%) purchase.</p>';
+  const rows = cart.map(c =>
+    '<div class="result-row" style="cursor:default">'+
+      '<div><div class="name">'+escapeHtml(c.product)+'</div><div class="meta">SKU '+escapeHtml(c.sku)+' &middot; RSP R'+money(c.rsp)+'</div></div>'+
+      '<div class="row-flex" style="gap:6px;align-items:center">'+
+        '<input type="number" min="1" value="'+c.qty+'" style="width:60px;padding:6px" onchange="updateCartQty(\''+c.sku.replace(/'/g,"\\'")+'\', this.value)">'+
+        '<button class="secondary" onclick="removeFromCart(\''+c.sku.replace(/'/g,"\\'")+'\')">Remove</button>'+
+      '</div>'+
+    '</div>'
+  ).join('');
   document.getElementById('orderPanel').innerHTML =
     '<div class="order-panel">'+
-      '<h3>'+escapeHtml(p.product)+'</h3>'+
-      '<div class="sub">SKU '+escapeHtml(p.sku)+' &middot; RSP R'+money(p.rsp)+'</div>'+
-      '<div class="field"><label>Quantity</label><input type="number" id="orderQty" min="1" value="1" oninput="renderAmounts()"></div>'+
+      '<h3>Cart ('+cart.length+' item'+(cart.length>1?'s':'')+')</h3>'+
+      '<div style="margin-bottom:16px">'+rows+'</div>'+
       toggle+
       '<div id="amounts"></div>'+
-      '<button class="primary" id="submitBtn" onclick="submitOrder()">Confirm Order</button>'+
+      '<button class="primary" id="submitBtn" onclick="submitCart()">Confirm Order</button>'+
     '</div>';
-  renderAmounts();
+  renderCartTotals();
 }
 
 function setOrderType(t){
   orderType = t;
   document.getElementById('typeAllowance').classList.toggle('active', t==='allowance');
   document.getElementById('typeDiscount').classList.toggle('active', t==='discount');
-  renderAmounts();
+  renderCartTotals();
 }
 
-function currentAmount(){
-  const qty = Math.max(1, parseInt(document.getElementById('orderQty').value)||1);
-  const rsp = Number(selectedProduct.rsp);
-  if(orderType === 'allowance') return {qty, amount: rsp*qty, label:'Deducted from allowance'};
-  const payable = rsp*qty*(1-CONFIG.DISCOUNT_RATE);
-  return {qty, amount: payable, label:'Payable by staff member'};
+function cartTotals(){
+  const totalRsp = cart.reduce((s,c)=>s+c.rsp*c.qty, 0);
+  if(orderType === 'allowance') return {totalRsp, amount: totalRsp, label:'Deducted from allowance'};
+  const amount = totalRsp*(1-CONFIG.DISCOUNT_RATE);
+  return {totalRsp, amount, label:'Payable by staff member'};
 }
 
-function renderAmounts(){
-  if(!selectedProduct) return;
-  const {qty, amount, label} = currentAmount();
-  let html = '<div class="amount-row"><span>RSP x '+qty+'</span><span>R'+money(selectedProduct.rsp*qty)+'</span></div>';
+function renderCartTotals(){
+  if(!cart.length) return;
+  const {totalRsp, amount, label} = cartTotals();
+  let html = '<div class="amount-row"><span>RSP total</span><span>R'+money(totalRsp)+'</span></div>';
   if(orderType==='discount'){
-    html += '<div class="amount-row"><span>Staff Discount ('+Math.round(CONFIG.DISCOUNT_RATE*100)+'%)</span><span>-R'+money(selectedProduct.rsp*qty*CONFIG.DISCOUNT_RATE)+'</span></div>';
+    html += '<div class="amount-row"><span>Staff Discount ('+Math.round(CONFIG.DISCOUNT_RATE*100)+'%)</span><span>-R'+money(totalRsp*CONFIG.DISCOUNT_RATE)+'</span></div>';
   }
   html += '<div class="amount-row total"><span>'+label+'</span><span>R'+money(amount)+'</span></div>';
   if(orderType==='allowance' && selectedStaff && amount > selectedStaff.balance){
@@ -358,9 +380,9 @@ async function buildAllowanceSummary(staffName, period, allowance){
   return { historyRows, totalUsed: money(totalUsed), totalAllowance: money(allowance) };
 }
 
-async function submitOrder(){
-  if(!selectedStaff || !selectedProduct) return;
-  const {qty, amount} = currentAmount();
+async function submitCart(){
+  if(!selectedStaff || !cart.length) return;
+  const {totalRsp, amount} = cartTotals();
   if(orderType === 'allowance' && amount > selectedStaff.balance){
     toast('Insufficient allowance balance for this order', true); return;
   }
@@ -369,6 +391,7 @@ async function submitOrder(){
 
   const balanceBefore = selectedStaff.balance;
   const balanceAfter = orderType === 'allowance' ? (balanceBefore - amount) : balanceBefore;
+  const totalQty = cart.reduce((s,c)=>s+c.qty, 0);
 
   try{
     if(orderType === 'allowance'){
@@ -376,13 +399,23 @@ async function submitOrder(){
       selectedStaff.balance = balanceAfter;
     }
 
-    await sb('POST','orders', {
-      staff_name: selectedStaff.name, sku: selectedProduct.sku, product: selectedProduct.product,
-      qty, order_type: orderType, rsp: selectedProduct.rsp, amount, period: selectedStaff.period
-    }, {'Prefer':'return=minimal'});
+    // one order row per cart item, so each keeps its own real SKU/RSP for reporting and invoicing
+    const rows = cart.map(c => ({
+      staff_name: selectedStaff.name, sku: c.sku, product: c.product, qty: c.qty,
+      order_type: orderType, rsp: c.rsp,
+      amount: orderType === 'allowance' ? c.rsp*c.qty : c.rsp*c.qty*(1-CONFIG.DISCOUNT_RATE),
+      period: selectedStaff.period
+    }));
+    await sb('POST','orders', rows, {'Prefer':'return=minimal'});
 
     const orderDate = new Date().toLocaleDateString('en-ZA', {year:'numeric',month:'long',day:'numeric'});
     const toList = [selectedStaff.email, CONFIG.MANAGER_EMAIL, CONFIG.WAREHOUSE_EMAIL].filter((v,i,a)=>v && a.indexOf(v)===i).join(', ');
+    const itemsRows = cart.map(c => {
+      let item = c.product + (c.qty > 1 ? ' (x'+c.qty+')' : '');
+      if(item.length > 42) item = item.slice(0,41)+'…';
+      const lineAmt = orderType === 'allowance' ? c.rsp*c.qty : c.rsp*c.qty*(1-CONFIG.DISCOUNT_RATE);
+      return item.padEnd(44) + ('R'+money(lineAmt)).padStart(12);
+    }).join('\n');
 
     // Staff Discount orders don't email immediately — the email only goes out once the Cin7 invoice
     // is attached in the admin panel (via emailInvoiceLink), so recipients get the invoice link with it.
@@ -391,18 +424,17 @@ async function submitOrder(){
 
       await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID, {
         to_email: toList, email: toList, staff_name: selectedStaff.name, order_date: orderDate,
-        product: selectedProduct.product, sku: selectedProduct.sku, qty,
-        order_type: orderType === 'allowance' ? 'Staff Allowance' : 'Staff Discount (40%)',
-        rsp: money(selectedProduct.rsp), amount: money(amount),
+        product: cart.length+' item'+(cart.length>1?'s':''), sku: '-', qty: totalQty,
+        order_type: 'Staff Allowance',
+        rsp: money(totalRsp), amount: money(amount),
         balance_before: money(balanceBefore), balance_after: money(balanceAfter),
         period: selectedStaff.period, total_allowance: summary.totalAllowance, total_used: summary.totalUsed,
-        history_rows: summary.historyRows, invoice_line: ''
+        history_rows: summary.historyRows, invoice_line: '', items_rows: itemsRows
       }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
     }
 
-    onStaffChange(); // refresh balance card from selectedStaff
+    onStaffChange(); // refreshes balance card and clears the cart
     document.getElementById('staffSelect').value = selectedStaff.name;
-    document.getElementById('orderPanel').innerHTML = '';
     document.getElementById('productSearch').value = '';
     document.getElementById('results').style.display = 'none';
     toast(orderType === 'allowance'
@@ -502,7 +534,7 @@ async function sendBalanceCopy(name){
       order_type: 'Balance Summary', rsp: '0,00', amount: '0,00',
       balance_before: bal, balance_after: bal, invoice_line: '',
       period: person.period, total_allowance: summary.totalAllowance, total_used: summary.totalUsed,
-      history_rows: summary.historyRows
+      history_rows: summary.historyRows, items_rows: ''
     }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
     toast('Balance copy sent to '+name);
   }catch(e){
@@ -675,7 +707,7 @@ async function emailInvoiceLink(id){
         product: order.product, sku: order.sku||'', qty: order.qty, order_type: 'Staff Allowance',
         rsp: money(order.rsp), amount: money(order.amount), balance_before: bal, balance_after: bal,
         period: order.period, total_allowance: summary.totalAllowance, total_used: summary.totalUsed,
-        history_rows: summary.historyRows, invoice_line: 'Cin7 Invoice: '+order.invoice_url
+        history_rows: summary.historyRows, invoice_line: 'Cin7 Invoice: '+order.invoice_url, items_rows: ''
       }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
     }
     toast('Invoice emailed');
