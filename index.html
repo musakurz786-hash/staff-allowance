@@ -587,6 +587,7 @@ async function importStockFile(){
   const skuCol = header.indexOf('sku');
   const productCol = header.indexOf('product');
   const availCol = header.indexOf('available') >= 0 ? header.indexOf('available') : header.indexOf('stock on hand');
+  const locationCol = header.indexOf('location');
 
   const existingBySku = {};
   PRODUCTS.forEach(p => existingBySku[p.sku] = p);
@@ -598,10 +599,16 @@ async function importStockFile(){
 
   const updates = [];
   let skippedJunk = 0;
+  let skippedLocation = 0;
   for(let i=headerIdx+1;i<rows.length;i++){
     const r = rows[i];
     const sku = r[skuCol] ? String(r[skuCol]).trim() : '';
     if(!sku) continue;
+    // multi-location reports (e.g. a DC-wide stock report) — only HQ stock is relevant here
+    if(locationCol >= 0){
+      const loc = String(r[locationCol]||'').trim().toUpperCase();
+      if(loc && loc !== 'HQ'){ skippedLocation++; continue; }
+    }
     const productName = String(r[productCol]||'').trim();
     if(nonMerchSku.test(sku) || nonMerchProduct.test(productName)){ skippedJunk++; continue; }
     const existing = existingBySku[sku];
@@ -612,7 +619,10 @@ async function importStockFile(){
     });
   }
 
-  status.textContent = 'Updating '+updates.length+' products ('+skippedJunk+' non-merchandise rows skipped)...';
+  const skippedNote = locationCol >= 0
+    ? (skippedJunk+' non-merchandise, '+skippedLocation+' non-HQ location rows skipped)')
+    : (skippedJunk+' non-merchandise rows skipped)');
+  status.textContent = 'Updating '+updates.length+' products ('+skippedNote+'...';
   const batchSize = 500;
   for(let i=0;i<updates.length;i+=batchSize){
     const batch = updates.slice(i,i+batchSize);
@@ -621,7 +631,7 @@ async function importStockFile(){
   }
   status.textContent = 'Done — '+updates.length+' products updated. Reloading catalog...';
   PRODUCTS = await sbAll('products?select=*&order=product.asc');
-  status.textContent = 'Stock import complete: '+updates.length+' products updated.';
+  status.textContent = 'Stock import complete: '+updates.length+' products updated'+(locationCol>=0 ? ' (HQ only, '+skippedLocation+' other-location rows skipped)' : '')+'.';
 }
 
 function onPriceSearch(){
