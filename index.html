@@ -72,6 +72,7 @@
   <nav>
     <button id="navOrder" class="active" onclick="showView('order')" style="display:none">Order</button>
     <button id="navAdmin" onclick="showView('admin')" style="display:none">Admin</button>
+    <button id="navChangePin" onclick="showView('changepin')" style="display:none">Change PIN</button>
     <span id="userBadge" style="display:none;font-size:11px;color:var(--ink);align-self:center;margin:0 4px;"></span>
     <button id="navLogout" onclick="logout()" style="display:none">Log out</button>
   </nav>
@@ -200,6 +201,27 @@
     </div>
   </div>
 
+  <!-- CHANGE PIN VIEW -->
+  <div id="view-changepin" class="view">
+    <div class="lock">
+      <h2 style="text-align:left">Change Your PIN</h2>
+      <div class="field">
+        <label>Current PIN</label>
+        <input type="password" id="curPin" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="Current 6-digit PIN">
+      </div>
+      <div class="field">
+        <label>New PIN</label>
+        <input type="password" id="newPin" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="New 6-digit PIN">
+      </div>
+      <div class="field">
+        <label>Confirm New PIN</label>
+        <input type="password" id="newPin2" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="Re-enter new PIN">
+      </div>
+      <button class="primary" onclick="changePin()" id="changePinBtn">Update PIN</button>
+      <button class="secondary" style="margin-top:10px;width:100%" onclick="showView('order')">Cancel</button>
+    </div>
+  </div>
+
 </main>
 
 <div id="toast" class="toast"></div>
@@ -318,6 +340,7 @@ async function handleAuthChange(){
     document.getElementById('navLogout').style.display = 'none';
     document.getElementById('navOrder').style.display = 'none';
     document.getElementById('navAdmin').style.display = 'none';
+    document.getElementById('navChangePin').style.display = 'none';
     showView('login');
     return;
   }
@@ -326,6 +349,7 @@ async function handleAuthChange(){
   document.getElementById('userBadge').textContent = currentEmail;
   document.getElementById('navLogout').style.display = 'inline-block';
   document.getElementById('navOrder').style.display = 'inline-block';
+  document.getElementById('navChangePin').style.display = 'inline-block';
   document.getElementById('navAdmin').style.display = (currentEmail === CONFIG.ADMIN_EMAIL) ? 'inline-block' : 'none';
   showView('order');
   await initOrderView();
@@ -355,9 +379,39 @@ function showView(name){
   document.getElementById('view-login').classList.toggle('active', name==='login');
   document.getElementById('view-order').classList.toggle('active', name==='order');
   document.getElementById('view-admin').classList.toggle('active', name==='admin');
+  document.getElementById('view-changepin').classList.toggle('active', name==='changepin');
   document.getElementById('navOrder').classList.toggle('active', name==='order');
   document.getElementById('navAdmin').classList.toggle('active', name==='admin');
   if(name==='admin') showAdminBody();
+}
+
+// Re-confirms the current PIN (a fresh signInWithPassword) before allowing the change, so a
+// left-open session on a shared device can't have its PIN silently swapped by someone else.
+async function changePin(){
+  const curPin = document.getElementById('curPin').value.trim();
+  const newPin = document.getElementById('newPin').value.trim();
+  const newPin2 = document.getElementById('newPin2').value.trim();
+  if(!curPin || !newPin){ toast('Fill in all fields', true); return; }
+  if(!/^\d{6}$/.test(newPin)){ toast('New PIN must be exactly 6 digits', true); return; }
+  if(newPin !== newPin2){ toast('New PINs don\'t match', true); return; }
+  const btn = document.getElementById('changePinBtn');
+  btn.disabled = true; btn.textContent = 'Updating...';
+  try{
+    const { error: reauthError } = await supa.auth.signInWithPassword({ email: currentEmail, password: curPin });
+    if(reauthError){ toast('Current PIN is incorrect', true); return; }
+    const { error } = await supa.auth.updateUser({ password: newPin });
+    if(error) throw error;
+    document.getElementById('curPin').value = '';
+    document.getElementById('newPin').value = '';
+    document.getElementById('newPin2').value = '';
+    toast('PIN updated');
+    showView('order');
+  }catch(e){
+    console.error(e);
+    toast('Could not update PIN — '+(e.message||e), true);
+  }finally{
+    btn.disabled = false; btn.textContent = 'Update PIN';
+  }
 }
 
 // ---------------- ORDER VIEW ----------------
