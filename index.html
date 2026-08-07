@@ -83,17 +83,16 @@
   <div id="view-login" class="view active">
     <div class="lock">
       <img src="https://www.freedomofmovement.co.za/cdn/shop/files/FOM_4a277dc0-1749-4e5c-92ce-3fccd1ec7e55.png?v=1760905009&width=140" alt="FOM" style="height:24px;margin-bottom:24px">
-      <div id="loginStep1">
-        <div class="field">
-          <label>Your Email</label>
-          <input type="text" id="loginEmail" placeholder="name@freedomofmovement.co.za">
-        </div>
-        <button class="primary" onclick="sendLoginLink()" id="loginBtn">Send Login Link</button>
+      <div class="field">
+        <label>Your Email</label>
+        <input type="text" id="loginEmail" placeholder="name@freedomofmovement.co.za" onkeydown="if(event.key==='Enter') login()">
       </div>
-      <div id="loginStep2" style="display:none">
-        <p style="font-size:14px">Check your email — we've sent you a link to log in.</p>
-        <button class="secondary" onclick="showLoginStep1()">Use a different email</button>
+      <div class="field">
+        <label>PIN</label>
+        <input type="password" id="loginPin" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6-digit PIN" onkeydown="if(event.key==='Enter') login()">
       </div>
+      <button class="primary" onclick="login()" id="loginBtn">Log In</button>
+      <p style="font-size:12px;color:var(--grey);margin-top:16px">Don't have a PIN yet? Ask Musa.</p>
     </div>
   </div>
 
@@ -228,27 +227,21 @@ async function sbAll(path){
   return all;
 }
 
-function showLoginStep1(){
-  document.getElementById('loginStep1').style.display = 'block';
-  document.getElementById('loginStep2').style.display = 'none';
-}
-
-async function sendLoginLink(){
+async function login(){
   const email = document.getElementById('loginEmail').value.trim().toLowerCase();
-  if(!email){ toast('Enter your email', true); return; }
+  const pin = document.getElementById('loginPin').value.trim();
+  if(!email || !pin){ toast('Enter your email and PIN', true); return; }
   const btn = document.getElementById('loginBtn');
-  btn.disabled = true; btn.textContent = 'Sending...';
+  btn.disabled = true; btn.textContent = 'Logging in...';
   try{
-    const redirectTo = window.location.origin + window.location.pathname;
-    const { error } = await supa.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
+    const { error } = await supa.auth.signInWithPassword({ email, password: pin });
     if(error) throw error;
-    document.getElementById('loginStep1').style.display = 'none';
-    document.getElementById('loginStep2').style.display = 'block';
+    // onAuthStateChange fires handleAuthChange automatically once the session is set
   }catch(e){
     console.error(e);
-    toast('Could not send login link — '+(e.message||e), true);
+    toast('Incorrect email or PIN', true);
   }finally{
-    btn.disabled = false; btn.textContent = 'Send Login Link';
+    btn.disabled = false; btn.textContent = 'Log In';
   }
 }
 
