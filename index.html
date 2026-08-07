@@ -519,8 +519,10 @@ async function submitCart(){
       return item.padEnd(44) + ('R'+money(lineAmt)).padStart(12);
     }).join('\n');
 
-    // Staff Discount orders don't email immediately — the email only goes out once the Cin7 invoice
-    // is attached in the admin panel (via emailInvoiceLink), so recipients get the invoice link with it.
+    // Staff Discount orders don't confirm the customer immediately — that email only goes out once
+    // the Cin7 invoice is attached in the admin panel (via emailInvoiceLink), so recipients get the
+    // invoice link with it. Admin still gets an immediate heads-up either way, reusing the same
+    // Discount Confirmation template with no invoice section (blank invoice fields render as nothing).
     if(CONFIG.EMAILJS_PUBLIC_KEY && orderType === 'allowance'){
       const summary = await buildAllowanceSummary(selectedStaff.name, selectedStaff.period, selectedStaff.allowance);
 
@@ -533,6 +535,14 @@ async function submitCart(){
         period: selectedStaff.period, total_allowance: summary.totalAllowance, total_used: summary.totalUsed,
         history_rows: summary.historyRows, invoice_prefix: '', invoice_url: '', invoice_label: '', items_rows: itemsRows
       }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
+    } else if(CONFIG.EMAILJS_PUBLIC_KEY && orderType === 'discount'){
+      const totalDiscount = totalRsp*CONFIG.DISCOUNT_RATE;
+      await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID_DISCOUNT || CONFIG.EMAILJS_TEMPLATE_ID, {
+        to_email: CONFIG.ADMIN_EMAIL, email: CONFIG.ADMIN_EMAIL, staff_name: selectedStaff.name, order_date: orderDate,
+        product: cart.length+' item'+(cart.length>1?'s':''), sku: '-', qty: totalQty,
+        rsp: money(totalRsp), discount_amount: money(totalDiscount), amount: money(amount),
+        items_rows: itemsRows, invoice_prefix: '', invoice_url: '', invoice_label: ''
+      }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
     }
 
     renderBalanceCard(); // refreshes balance card and clears the cart
@@ -540,7 +550,7 @@ async function submitCart(){
     document.getElementById('results').style.display = 'none';
     toast(orderType === 'allowance'
       ? 'Order confirmed — confirmation email sent. Dankie! Thank you! Danke! Shukran!'
-      : 'Order confirmed. Email goes out once the Cin7 invoice is attached. Dankie! Thank you! Danke! Shukran!');
+      : 'Order confirmed — Musa\'s been notified. Your email goes out once the invoice is attached. Dankie! Thank you! Danke! Shukran!');
   }catch(e){
     console.error(e);
     toast('Something went wrong placing the order', true);
