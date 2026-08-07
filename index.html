@@ -83,16 +83,36 @@
   <div id="view-login" class="view active">
     <div class="lock">
       <img src="https://www.freedomofmovement.co.za/cdn/shop/files/FOM_4a277dc0-1749-4e5c-92ce-3fccd1ec7e55.png?v=1760905009&width=140" alt="FOM" style="height:24px;margin-bottom:24px">
-      <div class="field">
-        <label>Your Email</label>
-        <input type="text" id="loginEmail" placeholder="name@freedomofmovement.co.za" onkeydown="if(event.key==='Enter') login()">
+
+      <div id="loginFormWrap">
+        <div class="field">
+          <label>Your Email</label>
+          <input type="text" id="loginEmail" placeholder="name@freedomofmovement.co.za" onkeydown="if(event.key==='Enter') login()">
+        </div>
+        <div class="field">
+          <label>PIN</label>
+          <input type="password" id="loginPin" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6-digit PIN" onkeydown="if(event.key==='Enter') login()">
+        </div>
+        <button class="primary" onclick="login()" id="loginBtn">Log In</button>
+        <p style="font-size:12px;color:var(--grey);margin-top:16px">First time here? <a href="#" onclick="showSignup();return false;">Set up your PIN</a></p>
       </div>
-      <div class="field">
-        <label>PIN</label>
-        <input type="password" id="loginPin" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6-digit PIN" onkeydown="if(event.key==='Enter') login()">
+
+      <div id="signupFormWrap" style="display:none">
+        <div class="field">
+          <label>Your Email</label>
+          <input type="text" id="signupEmail" placeholder="name@freedomofmovement.co.za">
+        </div>
+        <div class="field">
+          <label>Choose a 6-digit PIN</label>
+          <input type="password" id="signupPin" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6-digit PIN">
+        </div>
+        <div class="field">
+          <label>Confirm PIN</label>
+          <input type="password" id="signupPin2" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="Re-enter PIN">
+        </div>
+        <button class="primary" onclick="signup()" id="signupBtn">Create My Login</button>
+        <p style="font-size:12px;color:var(--grey);margin-top:16px">Already set up? <a href="#" onclick="showLogin();return false;">Log in</a></p>
       </div>
-      <button class="primary" onclick="login()" id="loginBtn">Log In</button>
-      <p style="font-size:12px;color:var(--grey);margin-top:16px">Don't have a PIN yet? Ask Musa.</p>
     </div>
   </div>
 
@@ -242,6 +262,48 @@ async function login(){
     toast('Incorrect email or PIN', true);
   }finally{
     btn.disabled = false; btn.textContent = 'Log In';
+  }
+}
+
+function showSignup(){
+  document.getElementById('loginFormWrap').style.display = 'none';
+  document.getElementById('signupFormWrap').style.display = 'block';
+}
+
+function showLogin(){
+  document.getElementById('signupFormWrap').style.display = 'none';
+  document.getElementById('loginFormWrap').style.display = 'block';
+}
+
+// Self-service: anyone can create their own login this way (no admin step, no email sent). RLS
+// still only ever lets whoever's logged in see the one staff row matching their own email, so the
+// only thing at stake here is *which* email someone claims — not what they can see once they have.
+async function signup(){
+  const email = document.getElementById('signupEmail').value.trim().toLowerCase();
+  const pin = document.getElementById('signupPin').value.trim();
+  const pin2 = document.getElementById('signupPin2').value.trim();
+  if(!email || !pin){ toast('Enter your email and choose a PIN', true); return; }
+  if(!/^\d{6}$/.test(pin)){ toast('PIN must be exactly 6 digits', true); return; }
+  if(pin !== pin2){ toast('PINs don\'t match', true); return; }
+  const btn = document.getElementById('signupBtn');
+  btn.disabled = true; btn.textContent = 'Creating...';
+  try{
+    const { error } = await supa.auth.signUp({ email, password: pin });
+    if(error){
+      if(/already registered|already exists/i.test(error.message)){
+        toast('An account already exists for that email — use Log In instead', true);
+        showLogin();
+        document.getElementById('loginEmail').value = email;
+        return;
+      }
+      throw error;
+    }
+    // onAuthStateChange fires handleAuthChange automatically once signed in
+  }catch(e){
+    console.error(e);
+    toast('Could not create your login — '+(e.message||e), true);
+  }finally{
+    btn.disabled = false; btn.textContent = 'Create My Login';
   }
 }
 
