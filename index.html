@@ -155,6 +155,16 @@
       </div>
 
       <div class="admin-section">
+        <h2>Import Allowance Tracker (Balances)</h2>
+        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Upload the Staff Allowance Tracker .xlsx (its "Summary" sheet). Shows exactly who would change before touching anything — nothing is saved until you click Apply.</p>
+        <input type="file" id="allowanceFile" accept=".xlsx,.xls">
+        <button class="secondary" style="margin-top:10px" onclick="previewAllowanceImport()">Preview Changes</button>
+        <div id="allowanceImportStatus" style="font-size:13px;margin-top:10px;color:var(--grey)"></div>
+        <div id="allowancePreview" style="margin-top:10px;overflow-x:auto"></div>
+        <button class="primary" id="applyAllowanceBtn" style="display:none" onclick="applyAllowanceImport()">Apply Updates</button>
+      </div>
+
+      <div class="admin-section">
         <h2>Edit Product Pricing</h2>
         <p style="font-size:13px;color:var(--grey);margin-top:-8px">For items on sale on the website but not in the ERP price list — search a product and update its price here.</p>
         <input type="text" id="priceSearch" placeholder="Search by product name or SKU..." oninput="onPriceSearch()">
@@ -826,6 +836,118 @@ async function importStockFile(){
   status.textContent = 'Done — '+updates.length+' products updated. Reloading catalog...';
   PRODUCTS = await sbAll('products?select=*&order=product.asc');
   status.textContent = 'Stock import complete: '+updates.length+' products updated'+(locationCol>=0 ? ' (HQ only, '+skippedLocation+' other-location rows skipped)' : '')+'.';
+}
+
+// known spelling differences between the tracker spreadsheet and the staff table — same people,
+// confirmed 2026-08-07. Everything else matches case-insensitively after trimming whitespace.
+const ALLOWANCE_NAME_ALIASES = {
+  'petronel van der walt': 'petronel van der watt',
+  'shane van tonder': 'shane van tonder'
+};
+
+function findAllowanceSummarySheet(wb){
+  if(wb.Sheets['Summary']) return wb.Sheets['Summary'];
+  for(const name of wb.SheetNames){
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], {header:1});
+    if(rows.some(r => r.some(c => String(c).trim().toLowerCase()==='staff member'))) return wb.Sheets[name];
+  }
+  return null;
+}
+
+let allowanceImportRows = [];
+
+async function previewAllowanceImport(){
+  const input = document.getElementById('allowanceFile');
+  const status = document.getElementById('allowanceImportStatus');
+  const previewDiv = document.getElementById('allowancePreview');
+  document.getElementById('applyAllowanceBtn').style.display = 'none';
+  previewDiv.innerHTML = '';
+  allowanceImportRows = [];
+  if(!input.files.length){ toast('Choose a file first', true); return; }
+
+  status.textContent = 'Reading file...';
+  const file = input.files[0];
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, {type:'array'});
+  const ws = findAllowanceSummarySheet(wb);
+  if(!ws){ status.textContent = 'Could not find a "Summary" sheet with Staff Member/Allowance/Balance columns.'; return; }
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1});
+
+  const target = {}; // normalized key -> {allowance, balance, sheetName}
+  rows.forEach(r=>{
+    const rawName = r[0];
+    if(!rawName) return;
+    const name = String(rawName).trim().replace(/\s+/g,' ');
+    if(name.toLowerCase()==='staff member') return;
+    const allowance = Number(r[1]);
+    const balance = Number(r[2]);
+    if(isNaN(allowance) || isNaN(balance)) return; // skip title/blank rows
+    const key = ALLOWANCE_NAME_ALIASES[name.toLowerCase()] || name.toLowerCase();
+    target[key] = { allowance, balance, sheetName: name };
+  });
+
+  status.textContent = 'Fetching current balances...';
+  const staff = await sb('GET','staff?select=name,allowance,balance&order=name.asc');
+  const staffByKey = {};
+  staff.forEach(s => staffByKey[s.name.toLowerCase()] = s);
+
+  const changes = [];
+  const notFound = [];
+  Object.keys(target).forEach(key=>{
+    const t = target[key];
+    const s = staffByKey[key];
+    if(!s){ notFound.push(t.sheetName); return; }
+    const balDiff = Math.round((t.balance - Number(s.balance))*100)/100;
+    const allowDiff = Math.round((t.allowance - Number(s.allowance))*100)/100;
+    if(balDiff !== 0 || allowDiff !== 0){
+      changes.push({ name: s.name, currentAllowance: Number(s.allowance), newAllowance: t.allowance, currentBalance: Number(s.balance), newBalance: t.balance, balDiff });
+    }
+  });
+
+  allowanceImportRows = changes;
+
+  let html = '';
+  if(notFound.length){
+    html += '<p style="font-size:12px;color:var(--bad)">Not matched to a staff record: '+notFound.map(escapeHtml).join(', ')+'</p>';
+  }
+  if(!changes.length){
+    html += '<p style="font-size:13px;color:var(--grey)">Everything already matches — nothing to update.</p>';
+  } else {
+    html += '<table class="admin"><thead><tr><th>Name</th><th>Current Balance</th><th>New Balance</th><th>Diff</th><th>Current Allowance</th><th>New Allowance</th></tr></thead><tbody>';
+    changes.forEach(c=>{
+      const sign = c.balDiff > 0 ? '+' : (c.balDiff < 0 ? '-' : '');
+      const color = c.balDiff < 0 ? 'var(--bad)' : (c.balDiff > 0 ? 'var(--good)' : 'inherit');
+      html += '<tr><td>'+escapeHtml(c.name)+'</td><td>R'+money(c.currentBalance)+'</td><td>R'+money(c.newBalance)+'</td>'+
+        '<td style="color:'+color+'">'+sign+'R'+money(Math.abs(c.balDiff))+'</td>'+
+        '<td>R'+money(c.currentAllowance)+'</td><td>R'+money(c.newAllowance)+'</td></tr>';
+    });
+    html += '</tbody></table>';
+    document.getElementById('applyAllowanceBtn').style.display = 'block';
+  }
+  previewDiv.innerHTML = html;
+  status.textContent = changes.length+' staff differ'+(notFound.length ? ', '+notFound.length+' not matched' : '')+'. Nothing has been saved yet.';
+}
+
+async function applyAllowanceImport(){
+  if(!allowanceImportRows.length) return;
+  if(!confirm('Apply '+allowanceImportRows.length+' balance/allowance update(s)? This directly changes live balances.')) return;
+  const status = document.getElementById('allowanceImportStatus');
+  try{
+    for(const c of allowanceImportRows){
+      await sb('PATCH','staff?name=eq.'+encodeURIComponent(c.name), {allowance: c.newAllowance, balance: c.newBalance});
+      status.textContent = 'Updated '+c.name+'...';
+    }
+    status.textContent = 'Done — '+allowanceImportRows.length+' staff updated.';
+    toast('Balances updated');
+  }catch(e){
+    console.error(e);
+    status.textContent = 'Something went wrong partway through — check Staff Allowance Periods below to see what applied.';
+    toast('Could not finish applying updates', true);
+  }
+  allowanceImportRows = [];
+  document.getElementById('applyAllowanceBtn').style.display = 'none';
+  document.getElementById('allowancePreview').innerHTML = '';
+  loadStaffTable();
 }
 
 function onPriceSearch(){
