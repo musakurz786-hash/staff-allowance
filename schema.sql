@@ -48,20 +48,85 @@ alter table staff enable row level security;
 alter table products enable row level security;
 alter table orders enable row level security;
 
--- Internal tool, no staff login system — matches the existing WHIP tool's model of using
--- the anon key for all reads/writes. Not suitable if this were public-facing.
-create policy "anon read staff" on staff for select using (true);
-create policy "anon insert staff" on staff for insert with check (true);
-create policy "anon update staff" on staff for update using (true) with check (true);
-create policy "anon delete staff" on staff for delete using (true);
-create policy "anon read products" on products for select using (true);
-create policy "anon write products" on products for all using (true) with check (true);
-create policy "anon read orders" on orders for select using (true);
-create policy "anon insert orders" on orders for insert with check (true);
-create policy "anon update orders" on orders for update using (true) with check (true);
-create policy "anon delete orders" on orders for delete using (true);
+-- ============================================================================
+-- Access model: staff log in with their own email (Supabase Auth magic link).
+-- Everyone can only see/touch their own staff row and their own orders; the
+-- one exception is the admin email below, which gets full access to
+-- everything — this is the "master admin" (Musa). Update the constant in
+-- every policy below if the admin's email ever changes; one admin account
+-- doesn't justify a config table + join just to parameterize this.
+-- ============================================================================
+
+-- staff: everyone can read their own row (for their balance/allowance); admin reads all.
+create policy "read own staff row, admin reads all" on staff for select
+  using (email = auth.jwt()->>'email' or auth.jwt()->>'email' = 'musa@freedomofmovement.co.za');
+
+-- staff: only admin can add/remove staff records.
+create policy "admin insert staff" on staff for insert
+  with check (auth.jwt()->>'email' = 'musa@freedomofmovement.co.za');
+create policy "admin delete staff" on staff for delete
+  using (auth.jwt()->>'email' = 'musa@freedomofmovement.co.za');
+
+-- staff: admin can update any column on any row; a regular staff member can only touch their own
+-- row, and (via the trigger below) only its `balance` column — that's what lets the app deduct an
+-- allowance purchase from your own balance without letting you edit your name/email/allowance or
+-- anyone else's balance.
+create policy "own row balance update, admin updates all" on staff for update
+  using (email = auth.jwt()->>'email' or auth.jwt()->>'email' = 'musa@freedomofmovement.co.za')
+  with check (email = auth.jwt()->>'email' or auth.jwt()->>'email' = 'musa@freedomofmovement.co.za');
+
+create or replace function staff_guard_update() returns trigger as $$
+begin
+  if auth.jwt()->>'email' = 'musa@freedomofmovement.co.za' then
+    return new; -- admin may change anything
+  end if;
+  if old.email is distinct from new.email
+     or old.name is distinct from new.name
+     or old.allowance is distinct from new.allowance
+     or old.period is distinct from new.period then
+    raise exception 'Not permitted to modify this field';
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger staff_guard_update_trigger before update on staff
+  for each row execute function staff_guard_update();
+
+-- products: the full catalog is visible to any logged-in staff member (needed to browse/order);
+-- only admin can add/edit/import.
+create policy "any logged-in user reads products" on products for select
+  using (auth.role() = 'authenticated');
+create policy "admin writes products" on products for all
+  using (auth.jwt()->>'email' = 'musa@freedomofmovement.co.za')
+  with check (auth.jwt()->>'email' = 'musa@freedomofmovement.co.za');
+
+-- orders: you can only see your own order history; admin sees everyone's.
+create policy "read own orders, admin reads all" on orders for select
+  using (
+    staff_name = (select name from staff where email = auth.jwt()->>'email')
+    or auth.jwt()->>'email' = 'musa@freedomofmovement.co.za'
+  );
+-- orders: you can only place an order under your own name (prevents ordering as someone else);
+-- admin can insert on anyone's behalf (used for historical backfills).
+create policy "insert own orders, admin inserts any" on orders for insert
+  with check (
+    staff_name = (select name from staff where email = auth.jwt()->>'email')
+    or auth.jwt()->>'email' = 'musa@freedomofmovement.co.za'
+  );
+-- orders: cancelling, invoicing, editing are admin-only actions (matches the admin panel — staff
+-- have no order-editing UI at all).
+create policy "admin updates orders" on orders for update
+  using (auth.jwt()->>'email' = 'musa@freedomofmovement.co.za')
+  with check (auth.jwt()->>'email' = 'musa@freedomofmovement.co.za');
+create policy "admin deletes orders" on orders for delete
+  using (auth.jwt()->>'email' = 'musa@freedomofmovement.co.za');
 
 -- Storage bucket "invoices" for uploaded Cin7 invoice PDFs. Create the bucket itself via the
--- Supabase dashboard (Storage -> New bucket -> name "invoices" -> toggle Public ON), then run this:
-create policy "anon upload invoices" on storage.objects for insert with check (bucket_id = 'invoices');
+-- Supabase dashboard (Storage -> New bucket -> name "invoices" -> toggle Public ON), then run this.
+-- Only admin uploads invoices; the bucket is Public so the PDF links in emails work for anyone
+-- without needing to be logged in — being Public bypasses these policies for plain GETs by URL,
+-- these only govern API-level access (uploads and listing).
+create policy "admin uploads invoices" on storage.objects for insert
+  with check (bucket_id = 'invoices' and auth.jwt()->>'email' = 'musa@freedomofmovement.co.za');
 create policy "anon read invoices" on storage.objects for select using (bucket_id = 'invoices');

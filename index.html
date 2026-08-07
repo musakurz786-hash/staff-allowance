@@ -70,47 +70,61 @@
     <span>Staff Allowance</span>
   </div>
   <nav>
-    <button id="navOrder" class="active" onclick="showView('order')">Order</button>
-    <button id="navAdmin" onclick="showView('admin')">Admin</button>
+    <button id="navOrder" class="active" onclick="showView('order')" style="display:none">Order</button>
+    <button id="navAdmin" onclick="showView('admin')" style="display:none">Admin</button>
+    <span id="userBadge" style="display:none;font-size:11px;color:var(--ink);align-self:center;margin:0 4px;"></span>
+    <button id="navLogout" onclick="logout()" style="display:none">Log out</button>
   </nav>
 </header>
 
 <main>
 
+  <!-- LOGIN VIEW -->
+  <div id="view-login" class="view active">
+    <div class="lock">
+      <img src="https://www.freedomofmovement.co.za/cdn/shop/files/FOM_4a277dc0-1749-4e5c-92ce-3fccd1ec7e55.png?v=1760905009&width=140" alt="FOM" style="height:24px;margin-bottom:24px">
+      <div id="loginStep1">
+        <div class="field">
+          <label>Your Email</label>
+          <input type="text" id="loginEmail" placeholder="name@freedomofmovement.co.za">
+        </div>
+        <button class="primary" onclick="sendLoginLink()" id="loginBtn">Send Login Link</button>
+      </div>
+      <div id="loginStep2" style="display:none">
+        <p style="font-size:14px">Check your email — we've sent you a link to log in.</p>
+        <button class="secondary" onclick="showLoginStep1()">Use a different email</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ORDER VIEW -->
-  <div id="view-order" class="view active">
-    <div class="field">
-      <label>Staff Member</label>
-      <select id="staffSelect" onchange="onStaffChange()">
-        <option value="">Select your name...</option>
-      </select>
+  <div id="view-order" class="view">
+    <div id="staffNotLinked" class="lock" style="display:none">
+      <p style="font-size:14px">Your account (<strong id="notLinkedEmail"></strong>) isn't linked to a staff record yet.</p>
+      <p style="font-size:12px;color:var(--grey)">Contact Musa to get set up, then log out and back in.</p>
     </div>
 
-    <div id="balanceCard" class="balance-card" style="display:none">
-      <div><div class="label">Annual Allowance</div><div class="value" id="balAllowance">R0</div></div>
-      <div><div class="label" id="balBalanceLabel">Balance Remaining</div><div class="value" id="balBalance">R0</div></div>
-      <div><div class="label">Period</div><div class="value" id="balPeriod">-</div></div>
+    <div id="orderContent" style="display:none">
+      <div id="balanceCard" class="balance-card" style="display:none">
+        <div><div class="label">Annual Allowance</div><div class="value" id="balAllowance">R0</div></div>
+        <div><div class="label" id="balBalanceLabel">Balance Remaining</div><div class="value" id="balBalance">R0</div></div>
+        <div><div class="label">Period</div><div class="value" id="balPeriod">-</div></div>
+      </div>
+
+      <div class="field">
+        <label>Search Products</label>
+        <input type="text" id="productSearch" placeholder="e.g. Corduroy Overshirt, Tekkie, Vellies..." oninput="onSearch()" disabled>
+      </div>
+
+      <div id="results" class="results" style="display:none"></div>
+
+      <div id="orderPanel"></div>
     </div>
-
-    <div class="field">
-      <label>Search Products</label>
-      <input type="text" id="productSearch" placeholder="e.g. Corduroy Overshirt, Tekkie, Vellies..." oninput="onSearch()" disabled>
-    </div>
-
-    <div id="results" class="results" style="display:none"></div>
-
-    <div id="orderPanel"></div>
   </div>
 
   <!-- ADMIN VIEW -->
   <div id="view-admin" class="view">
-    <div id="adminLock" class="lock">
-      <label>Admin Password</label>
-      <input type="password" id="adminPw">
-      <button class="primary" onclick="tryAdminUnlock()">Unlock</button>
-    </div>
-
-    <div id="adminBody" style="display:none">
+    <div id="adminBody">
 
       <div class="admin-section">
         <h2>Import Daily Stock Report</h2>
@@ -173,16 +187,25 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <script>
 document.title = document.title; // no-op, keeps head tidy
 </script>
 <script>
-const SBH = {'apikey':CONFIG.SB_KEY,'Authorization':'Bearer '+CONFIG.SB_KEY,'Content-Type':'application/json'};
+// ---------------- AUTH ----------------
+const supa = window.supabase.createClient(CONFIG.SB_URL, CONFIG.SB_KEY);
+let currentSession = null;
+let currentEmail = null;
+
+function authHeaders(extra){
+  const token = (currentSession && currentSession.access_token) || CONFIG.SB_KEY;
+  return Object.assign({'apikey':CONFIG.SB_KEY,'Authorization':'Bearer '+token,'Content-Type':'application/json'}, extra||{});
+}
 
 async function sb(method, path, body, headers){
   const r = await fetch(CONFIG.SB_URL+'/rest/v1/'+path, {
-    method, headers: Object.assign({}, SBH, headers||{}), body: body ? JSON.stringify(body) : undefined
+    method, headers: authHeaders(headers), body: body ? JSON.stringify(body) : undefined
   });
   if(!r.ok){ const t = await r.text(); throw new Error(t); }
   const ct = r.headers.get('content-type')||'';
@@ -194,7 +217,7 @@ async function sbAll(path){
   let all = []; let from = 0; const pageSize = 1000;
   while(true){
     const r = await fetch(CONFIG.SB_URL+'/rest/v1/'+path, {
-      headers: Object.assign({}, SBH, {'Range-Unit':'items','Range':from+'-'+(from+pageSize-1)})
+      headers: authHeaders({'Range-Unit':'items','Range':from+'-'+(from+pageSize-1)})
     });
     if(!r.ok) throw new Error(await r.text());
     const page = await r.json();
@@ -203,6 +226,66 @@ async function sbAll(path){
     from += pageSize;
   }
   return all;
+}
+
+function showLoginStep1(){
+  document.getElementById('loginStep1').style.display = 'block';
+  document.getElementById('loginStep2').style.display = 'none';
+}
+
+async function sendLoginLink(){
+  const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+  if(!email){ toast('Enter your email', true); return; }
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true; btn.textContent = 'Sending...';
+  try{
+    const redirectTo = window.location.origin + window.location.pathname;
+    const { error } = await supa.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
+    if(error) throw error;
+    document.getElementById('loginStep1').style.display = 'none';
+    document.getElementById('loginStep2').style.display = 'block';
+  }catch(e){
+    console.error(e);
+    toast('Could not send login link — '+(e.message||e), true);
+  }finally{
+    btn.disabled = false; btn.textContent = 'Send Login Link';
+  }
+}
+
+function logout(){
+  supa.auth.signOut();
+}
+
+async function handleAuthChange(){
+  if(!currentSession){
+    currentEmail = null;
+    document.getElementById('userBadge').style.display = 'none';
+    document.getElementById('navLogout').style.display = 'none';
+    document.getElementById('navOrder').style.display = 'none';
+    document.getElementById('navAdmin').style.display = 'none';
+    showView('login');
+    return;
+  }
+  currentEmail = currentSession.user.email;
+  document.getElementById('userBadge').style.display = 'inline';
+  document.getElementById('userBadge').textContent = currentEmail;
+  document.getElementById('navLogout').style.display = 'inline-block';
+  document.getElementById('navOrder').style.display = 'inline-block';
+  document.getElementById('navAdmin').style.display = (currentEmail === CONFIG.ADMIN_EMAIL) ? 'inline-block' : 'none';
+  showView('order');
+  await initOrderView();
+}
+
+async function boot(){
+  if(CONFIG.EMAILJS_PUBLIC_KEY && window.emailjs) emailjs.init({publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
+  document.getElementById('discountPctLabel').textContent = Math.round(CONFIG.DISCOUNT_RATE*100);
+  const { data } = await supa.auth.getSession();
+  currentSession = data.session;
+  supa.auth.onAuthStateChange((event, session) => {
+    currentSession = session;
+    handleAuthChange();
+  });
+  await handleAuthChange();
 }
 
 function toast(msg, isErr){
@@ -214,41 +297,46 @@ function toast(msg, isErr){
 function money(n){ return Number(n||0).toLocaleString('en-ZA', {minimumFractionDigits:2, maximumFractionDigits:2}); }
 
 function showView(name){
+  document.getElementById('view-login').classList.toggle('active', name==='login');
   document.getElementById('view-order').classList.toggle('active', name==='order');
   document.getElementById('view-admin').classList.toggle('active', name==='admin');
   document.getElementById('navOrder').classList.toggle('active', name==='order');
   document.getElementById('navAdmin').classList.toggle('active', name==='admin');
-  if(name==='admin' && sessionStorage.getItem('fomAdmin')==='1') showAdminBody();
+  if(name==='admin') showAdminBody();
 }
 
 // ---------------- ORDER VIEW ----------------
-let STAFF = [];
 let PRODUCTS = [];
 let selectedStaff = null;
 let cart = []; // [{sku, product, rsp, qty}] — one cart, one order type at a time
 let orderType = 'allowance';
 
+// Staff no longer pick their name from a list — they're identified by whoever they logged in as.
+// This looks up (and RLS only allows seeing) the one staff row matching the logged-in email.
 async function initOrderView(){
-  try{
-    STAFF = await sb('GET','staff?select=*&order=name.asc');
-    const sel = document.getElementById('staffSelect');
-    STAFF.forEach(s=>{
-      const o = document.createElement('option'); o.value = s.name; o.textContent = s.name;
-      sel.appendChild(o);
-    });
-  }catch(e){ console.error(e); toast('Could not load staff list', true); }
-
   try{
     PRODUCTS = await sbAll('products?select=*&order=product.asc');
     document.getElementById('productSearch').disabled = false;
   }catch(e){ console.error(e); toast('Could not load product catalog', true); }
+
+  try{
+    const rows = await sb('GET','staff?select=*&email=eq.'+encodeURIComponent(currentEmail));
+    selectedStaff = rows[0] || null;
+  }catch(e){ console.error(e); selectedStaff = null; }
+
+  if(!selectedStaff){
+    document.getElementById('staffNotLinked').style.display = 'block';
+    document.getElementById('orderContent').style.display = 'none';
+    document.getElementById('notLinkedEmail').textContent = currentEmail;
+    return;
+  }
+  document.getElementById('staffNotLinked').style.display = 'none';
+  document.getElementById('orderContent').style.display = 'block';
+  renderBalanceCard();
 }
 
-function onStaffChange(){
-  const name = document.getElementById('staffSelect').value;
-  selectedStaff = STAFF.find(s=>s.name===name) || null;
+function renderBalanceCard(){
   const card = document.getElementById('balanceCard');
-  if(!selectedStaff){ card.style.display='none'; return; }
   card.style.display = 'flex';
   document.getElementById('balAllowance').textContent = 'R'+money(selectedStaff.allowance);
   const balEl = document.getElementById('balBalance');
@@ -288,7 +376,7 @@ function onSearch(){
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 function selectProduct(sku){
-  if(!selectedStaff){ toast('Select your name first', true); return; }
+  if(!selectedStaff){ toast('Your account isn\'t linked to a staff record yet', true); return; }
   const p = PRODUCTS.find(p=>p.sku===sku);
   if(!p) return;
   if(!(Number(p.rsp) > 0)){
@@ -447,8 +535,7 @@ async function submitCart(){
       }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
     }
 
-    onStaffChange(); // refreshes balance card and clears the cart
-    document.getElementById('staffSelect').value = selectedStaff.name;
+    renderBalanceCard(); // refreshes balance card and clears the cart
     document.getElementById('productSearch').value = '';
     document.getElementById('results').style.display = 'none';
     toast(orderType === 'allowance'
@@ -462,18 +549,10 @@ async function submitCart(){
 }
 
 // ---------------- ADMIN VIEW ----------------
-function tryAdminUnlock(){
-  if(document.getElementById('adminPw').value === CONFIG.ADMIN_PASSWORD){
-    sessionStorage.setItem('fomAdmin','1');
-    showAdminBody();
-  } else {
-    toast('Incorrect password', true);
-  }
-}
-
+// No password gate anymore — the Admin nav button only shows for CONFIG.ADMIN_EMAIL (see
+// handleAuthChange), and every write below is enforced server-side by RLS for that same email,
+// so there's nothing left for a client-side lock to usefully protect.
 function showAdminBody(){
-  document.getElementById('adminLock').style.display = 'none';
-  document.getElementById('adminBody').style.display = 'block';
   loadStaffTable();
   loadDiscountReport();
   loadOrderHistory();
@@ -506,9 +585,6 @@ async function addStaff(){
     document.getElementById('newStaffName').value = '';
     document.getElementById('newStaffEmail').value = '';
     document.getElementById('newStaffAllowance').value = '0';
-    STAFF = await sb('GET','staff?select=*&order=name.asc');
-    const sel = document.getElementById('staffSelect');
-    sel.innerHTML = '<option value="">Select your name...</option>' + STAFF.map(s=>'<option value="'+escapeHtml(s.name)+'">'+escapeHtml(s.name)+'</option>').join('');
     loadStaffTable();
     toast(name+' added'+(allowance===0 ? ' (discount only)' : ''));
   }catch(e){
@@ -521,8 +597,7 @@ async function saveStaffEmail(name, email){
   email = email.trim();
   try{
     await sb('PATCH','staff?name=eq.'+encodeURIComponent(name), {email: email || null});
-    const s = STAFF.find(x=>x.name===name);
-    if(s) s.email = email;
+    if(selectedStaff && selectedStaff.name===name) selectedStaff.email = email;
     toast('Saved email for '+name);
   }catch(e){
     console.error(e);
@@ -723,7 +798,7 @@ async function uploadInvoice(groupKey, scope){
   try{
     const buf = await file.arrayBuffer();
     const r = await fetch(CONFIG.SB_URL+'/storage/v1/object/invoices/'+path, {
-      method:'POST', headers:{'apikey':CONFIG.SB_KEY,'Authorization':'Bearer '+CONFIG.SB_KEY,'Content-Type':file.type||'application/pdf'},
+      method:'POST', headers: authHeaders({'Content-Type':file.type||'application/pdf'}),
       body: buf
     });
     if(!r.ok) throw new Error(await r.text());
@@ -852,10 +927,7 @@ function exportDiscountReportCsv(){
   a.href = URL.createObjectURL(blob); a.download = 'staff-discount-report.csv'; a.click();
 }
 
-if(CONFIG.EMAILJS_PUBLIC_KEY && window.emailjs) emailjs.init({publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
-document.getElementById('discountPctLabel').textContent = Math.round(CONFIG.DISCOUNT_RATE*100);
-initOrderView();
-if(sessionStorage.getItem('fomAdmin')==='1') showAdminBody();
+boot();
 </script>
 </body>
 </html>

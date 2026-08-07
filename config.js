@@ -19,5 +19,8 @@ const CONFIG = {
   DISCOUNT_RATE: 0.40,      // staff discount = 40% off RSP
   CURRENT_PERIOD: '2026',
 
-  ADMIN_PASSWORD: 'fom-admin-2026' // soft gate only, not real security — internal tool
+  // Master admin — whoever logs in with this email gets the Admin tab and full access to every
+  // staff member's data. Enforced for real by database policies (see schema.sql), not just this
+  // client-side check, so this isn't a secret that needs protecting.
+  ADMIN_EMAIL: 'musa@freedomofmovement.co.za'
 };
