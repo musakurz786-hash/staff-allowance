@@ -35,9 +35,13 @@ create table orders (
   invoice_url text, -- link to the Cin7 invoice PDF, uploaded via the admin panel once the discount sale is processed
   is_historical boolean not null default false, -- backfilled from the old spreadsheet, pre-dating the app.
     -- Balances were seeded as a fixed number that already accounts for these, so cancelling one must NOT refund it.
-  order_group_id text -- ties together every line item placed in the same cart submission, so a
+  order_group_id text, -- ties together every line item placed in the same cart submission, so a
     -- multi-item order gets exactly one Cin7 invoice and one confirmation/invoice email, matching
     -- how Cin7 actually invoices a whole purchase rather than per line item.
+  is_topup boolean not null default false -- true when this discount-type row is the pay-in
+    -- remainder of a split Staff Allowance purchase (charged at full RSP, not the 40% staff
+    -- discount), rather than an ordinary staff-discount purchase. Still needs Cin7 invoicing like
+    -- any other discount-type row, just at a different rate — see split-payment-migration.sql.
 );
 
 create index orders_staff_idx on orders(staff_name);

@@ -574,8 +574,13 @@ function renderCartTotals(){
   }
   html += '<div class="amount-row total"><span>'+label+'</span><span>R'+money(amount)+'</span></div>';
   if(orderType==='allowance' && selectedStaff && amount > selectedStaff.balance){
+    const covered = Math.max(0, selectedStaff.balance);
+    const shortfall = amount - covered;
     const balText = selectedStaff.balance < 0 ? 'R'+money(Math.abs(selectedStaff.balance))+' outstanding' : 'R'+money(selectedStaff.balance)+' available';
     html += '<div class="amount-row" style="color:var(--bad)"><span>Insufficient balance</span><span>'+balText+'</span></div>';
+    if(selectedStaff.balance > 0){
+      html += '<div class="amount-row" style="font-size:12px;color:var(--grey)"><span>You can still place this order: R'+money(covered)+' from your allowance + you pay in R'+money(shortfall)+' (full price)</span></div>';
+    }
   }
   document.getElementById('amounts').innerHTML = html;
 }
@@ -602,15 +607,36 @@ async function buildAllowanceSummary(staffName, period, allowance){
 async function submitCart(){
   if(!selectedStaff || !cart.length) return;
   const {totalRsp, amount} = cartTotals();
+
+  // Split payment: if an allowance order costs more than what's left, use up the remaining
+  // balance and let the shortfall go through as a full-price pay-in — invoiced the same way a
+  // Staff Discount purchase is, since it's real money changing hands rather than allowance spend.
+  let isSplit = false;
+  let allowanceAmountTotal = amount;
+  let topupAmountTotal = 0;
   if(orderType === 'allowance' && amount > selectedStaff.balance){
-    toast('Insufficient allowance balance for this order', true); return;
+    if(selectedStaff.balance <= 0){
+      toast('No allowance balance left for this order', true); return;
+    }
+    const shortfall = amount - selectedStaff.balance;
+    const proceed = confirm(
+      'Your allowance only covers R'+money(selectedStaff.balance)+' of this R'+money(amount)+' order.\n\n'+
+      'R'+money(selectedStaff.balance)+' will be deducted from your allowance, and you\'ll pay in the remaining '+
+      'R'+money(shortfall)+' at full price — invoiced separately, the same as a Staff Discount purchase.\n\nProceed?'
+    );
+    if(!proceed) return;
+    isSplit = true;
+    allowanceAmountTotal = selectedStaff.balance;
+    topupAmountTotal = shortfall;
   }
+
   const btn = document.getElementById('submitBtn');
   btn.disabled = true; btn.textContent = 'Placing order...';
 
   const balanceBefore = selectedStaff.balance;
-  const balanceAfter = orderType === 'allowance' ? (balanceBefore - amount) : balanceBefore;
+  const balanceAfter = orderType === 'allowance' ? (balanceBefore - allowanceAmountTotal) : balanceBefore;
   const totalQty = cart.reduce((s,c)=>s+c.qty, 0);
+  const groupId = selectedStaff.name.replace(/\s+/g,'')+'-'+Date.now();
 
   try{
     if(orderType === 'allowance'){
@@ -619,14 +645,35 @@ async function submitCart(){
     }
 
     // one order row per cart item (so each keeps its own real SKU/RSP for reporting), but all
-    // tagged with the same group id so the whole cart shares one Cin7 invoice and one email
-    const groupId = selectedStaff.name.replace(/\s+/g,'')+'-'+Date.now();
-    const rows = cart.map(c => ({
-      staff_name: selectedStaff.name, sku: c.sku, product: c.product, qty: c.qty,
-      order_type: orderType, rsp: c.rsp,
-      amount: orderType === 'allowance' ? c.rsp*c.qty : c.rsp*c.qty*(1-CONFIG.DISCOUNT_RATE),
-      period: selectedStaff.period, order_group_id: groupId
-    }));
+    // tagged with the same group id so the whole cart shares one Cin7 invoice and one email —
+    // except a split order, where at most one item straddles the allowance/pay-in boundary and
+    // becomes two rows so both halves still add up to that item's full RSP.
+    let rows;
+    if(isSplit){
+      let remaining = allowanceAmountTotal;
+      rows = [];
+      cart.forEach(c => {
+        const itemTotal = c.rsp*c.qty;
+        const covered = Math.max(0, Math.min(itemTotal, remaining));
+        remaining -= covered;
+        if(covered > 0){
+          rows.push({ staff_name: selectedStaff.name, sku: c.sku, product: c.product, qty: c.qty,
+            order_type: 'allowance', rsp: c.rsp, amount: covered, period: selectedStaff.period, order_group_id: groupId });
+        }
+        const topup = itemTotal - covered;
+        if(topup > 0){
+          rows.push({ staff_name: selectedStaff.name, sku: c.sku, product: c.product, qty: c.qty,
+            order_type: 'discount', rsp: c.rsp, amount: topup, period: selectedStaff.period, order_group_id: groupId, is_topup: true });
+        }
+      });
+    } else {
+      rows = cart.map(c => ({
+        staff_name: selectedStaff.name, sku: c.sku, product: c.product, qty: c.qty,
+        order_type: orderType, rsp: c.rsp,
+        amount: orderType === 'allowance' ? c.rsp*c.qty : c.rsp*c.qty*(1-CONFIG.DISCOUNT_RATE),
+        period: selectedStaff.period, order_group_id: groupId
+      }));
+    }
     await sb('POST','orders', rows, {'Prefer':'return=minimal'});
 
     const orderDate = new Date().toLocaleDateString('en-ZA', {year:'numeric',month:'long',day:'numeric'});
@@ -636,11 +683,11 @@ async function submitCart(){
       if(item.length > 42) item = item.slice(0,41)+'…';
       const lineAmt = orderType === 'allowance' ? c.rsp*c.qty : c.rsp*c.qty*(1-CONFIG.DISCOUNT_RATE);
       return item.padEnd(44) + ('R'+money(lineAmt)).padStart(12);
-    }).join('\n');
+    }).join('\n') + (isSplit ? '\n'+'PAY IN (invoiced separately)'.padEnd(44)+('R'+money(topupAmountTotal)).padStart(12) : '');
 
-    // Staff Discount orders don't confirm the customer immediately — that email only goes out once
-    // the Cin7 invoice is attached in the admin panel (via emailInvoiceLink), so recipients get the
-    // invoice link with it. Admin still gets an immediate heads-up either way, reusing the same
+    // Staff Discount orders (and the pay-in portion of a split) don't confirm the customer
+    // immediately — that email only goes out once the Cin7 invoice is attached in the admin panel
+    // (via emailInvoiceLink). Admin still gets an immediate heads-up either way, reusing the same
     // Discount Confirmation template with no invoice section (blank invoice fields render as nothing).
     if(CONFIG.EMAILJS_PUBLIC_KEY && orderType === 'allowance'){
       const summary = await buildAllowanceSummary(selectedStaff.name, selectedStaff.period, selectedStaff.allowance);
@@ -649,11 +696,20 @@ async function submitCart(){
         to_email: toList, email: toList, staff_name: selectedStaff.name, order_date: orderDate,
         product: cart.length+' item'+(cart.length>1?'s':''), sku: '-', qty: totalQty,
         order_type: 'Staff Allowance',
-        rsp: money(totalRsp), amount: money(amount),
+        rsp: money(totalRsp), amount: money(allowanceAmountTotal),
         balance_before: money(balanceBefore), balance_after: money(balanceAfter),
         period: selectedStaff.period, total_allowance: summary.totalAllowance, total_used: summary.totalUsed,
         history_rows: summary.historyRows, invoice_prefix: '', invoice_url: '', invoice_label: '', items_rows: itemsRows
       }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
+
+      if(isSplit){
+        await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID_DISCOUNT || CONFIG.EMAILJS_TEMPLATE_ID, {
+          to_email: CONFIG.ADMIN_EMAIL, email: CONFIG.ADMIN_EMAIL, staff_name: selectedStaff.name, order_date: orderDate,
+          product: cart.length+' item'+(cart.length>1?'s':'')+' (allowance top-up)', sku: '-', qty: totalQty,
+          rsp: money(topupAmountTotal), discount_amount: '0,00', amount: money(topupAmountTotal),
+          items_rows: itemsRows, invoice_prefix: '', invoice_url: '', invoice_label: ''
+        }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
+      }
     } else if(CONFIG.EMAILJS_PUBLIC_KEY && orderType === 'discount'){
       const totalDiscount = totalRsp*CONFIG.DISCOUNT_RATE;
       await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID_DISCOUNT || CONFIG.EMAILJS_TEMPLATE_ID, {
@@ -667,9 +723,11 @@ async function submitCart(){
     renderBalanceCard(); // refreshes balance card and clears the cart
     document.getElementById('productSearch').value = '';
     document.getElementById('results').style.display = 'none';
-    toast(orderType === 'allowance'
-      ? 'Order confirmed — confirmation email sent. Dankie! Thank you! Danke! Shukran!'
-      : 'Order confirmed — Musa\'s been notified. Your email goes out once the invoice is attached. Dankie! Thank you! Danke! Shukran!');
+    toast(isSplit
+      ? 'Order confirmed — R'+money(allowanceAmountTotal)+' from your allowance, R'+money(topupAmountTotal)+' pay-in invoiced separately.'
+      : orderType === 'allowance'
+        ? 'Order confirmed — confirmation email sent. Dankie! Thank you! Danke! Shukran!'
+        : 'Order confirmed — Musa\'s been notified. Your email goes out once the invoice is attached. Dankie! Thank you! Danke! Shukran!');
   }catch(e){
     console.error(e);
     toast('Something went wrong placing the order', true);
@@ -1012,19 +1070,23 @@ async function loadDiscountReport(){
   const tbody = document.querySelector('#discountTable tbody');
   tbody.innerHTML = discountGroups.map(g=>{
     const totalRsp = g.orders.reduce((s,o)=>s+o.rsp*o.qty,0);
-    const totalDiscount = totalRsp*CONFIG.DISCOUNT_RATE;
     const totalPayable = g.orders.reduce((s,o)=>s+Number(o.amount),0);
+    // derived from actual amount rather than a flat 40%, so an allowance top-up row (charged at
+    // full RSP, no discount) correctly shows R0 here instead of a discount that was never applied
+    const totalDiscount = totalRsp - totalPayable;
     const totalQty = g.orders.reduce((s,o)=>s+o.qty,0);
-    const productLabel = g.orders.length===1 ? escapeHtml(g.orders[0].product)
-      : g.orders.length+' items: '+g.orders.map(o=>escapeHtml(o.product)).join(', ');
+    const hasTopup = g.orders.some(o=>o.is_topup);
+    const productLabel = (g.orders.length===1 ? escapeHtml(g.orders[0].product)
+      : g.orders.length+' items: '+g.orders.map(o=>escapeHtml(o.product)).join(', '))
+      + (hasTopup ? ' <span style="color:var(--grey);font-size:11px">(allowance top-up)</span>' : '');
     return '<tr><td>'+new Date(g.created_at).toLocaleDateString('en-ZA')+'</td><td>'+escapeHtml(g.staff_name)+'</td>'+
       '<td>'+productLabel+'</td><td>'+totalQty+'</td><td>R'+money(totalRsp)+'</td>'+
       '<td>R'+money(totalDiscount)+'</td><td>R'+money(totalPayable)+'</td><td>'+invoiceCellHtml(g,'discount')+'</td>'+
       '<td><button class="secondary" onclick="deleteCartGroup(\''+g.key+'\')">Delete</button></td></tr>';
   }).join('');
   const totalRsp = discountRows.reduce((s,o)=>s+o.rsp*o.qty,0);
-  const totalDiscount = totalRsp*CONFIG.DISCOUNT_RATE;
   const totalPayable = discountRows.reduce((s,o)=>s+Number(o.amount),0);
+  const totalDiscount = totalRsp - totalPayable;
   document.getElementById('discountTotals').textContent =
     discountGroups.length+' order'+(discountGroups.length===1?'':'s')+' ('+discountRows.length+' items) — Total RSP R'+money(totalRsp)+' — Total Discount R'+money(totalDiscount)+' — Total Payable R'+money(totalPayable);
 }
@@ -1067,8 +1129,10 @@ async function emailInvoiceLink(groupKey, scope){
   try{
     if(isDiscount){
       const totalRsp = group.orders.reduce((s,o)=>s+o.rsp*o.qty,0);
-      const totalDiscount = totalRsp*CONFIG.DISCOUNT_RATE;
       const totalPayable = group.orders.reduce((s,o)=>s+Number(o.amount),0);
+      // derived rather than assuming a flat 40% — a top-up row is charged at full RSP, so this
+      // correctly comes out to R0 discount for that portion instead of a discount never applied
+      const totalDiscount = totalRsp - totalPayable;
       const itemsRows = group.orders.map(o=>{
         let item = o.product + (o.qty>1?' (x'+o.qty+')':'');
         if(item.length>42) item = item.slice(0,41)+'…';
@@ -1113,12 +1177,17 @@ async function loadOrderHistory(){
   tbody.innerHTML = historyGroups.map(g=>{
     const totalQty = g.orders.reduce((s,o)=>s+o.qty,0);
     const totalAmount = g.orders.reduce((s,o)=>s+Number(o.amount),0);
+    const isSplitGroup = new Set(g.orders.map(o=>o.order_type)).size > 1;
     const productLabel = g.orders.length===1 ? escapeHtml(g.orders[0].product)
       : g.orders.length+' items: '+g.orders.map(o=>escapeHtml(o.product)).join(', ');
+    const typeLabel = isSplitGroup ? 'Split (Allowance + Pay-in)' : (g.orders[0].order_type==='allowance'?'Allowance':'Discount');
+    // a split group's pay-in portion is invoiced via the Discount Report (which cleanly isolates
+    // just that row) rather than here, to avoid building a second, easy-to-get-wrong invoicing path
+    const invoiceCell = isSplitGroup ? '<span style="font-size:11px;color:var(--grey)">Invoice pay-in via Discount Report</span>' : invoiceCellHtml(g,'history');
     return '<tr><td>'+new Date(g.created_at).toLocaleDateString('en-ZA')+'</td><td>'+escapeHtml(g.staff_name)+'</td>'+
       '<td>'+productLabel+'</td><td>'+totalQty+'</td>'+
-      '<td>'+(g.orders[0].order_type==='allowance'?'Allowance':'Discount')+'</td><td>R'+money(totalAmount)+'</td>'+
-      '<td>'+invoiceCellHtml(g,'history')+'</td>'+
+      '<td>'+typeLabel+'</td><td>R'+money(totalAmount)+'</td>'+
+      '<td>'+invoiceCell+'</td>'+
       '<td><button class="secondary" onclick="deleteCartGroup(\''+g.key+'\')">Cancel</button></td></tr>';
   }).join('');
 }
@@ -1127,14 +1196,20 @@ async function deleteCartGroup(groupKey){
   const g = discountGroups.find(x=>x.key===groupKey) || historyGroups.find(x=>x.key===groupKey);
   if(!g || !g.orders.length) return;
   const first = g.orders[0];
-  // historical (pre-app, backfilled) orders never refund: the person's balance was seeded as a
-  // fixed number that already accounts for these, so deleting one must just remove the record.
-  const willRefund = first.order_type === 'allowance' && !first.is_historical;
-  const refundTotal = g.orders.reduce((s,o)=>s+Number(o.amount),0);
+  // Only the allowance-type rows in this group ever get refunded — historical (pre-app,
+  // backfilled) ones never do, since the person's balance was already seeded net of those. For a
+  // split order, the pay-in/discount-type rows were real money, not balance, so cancelling never
+  // refunds that portion here (that's a manual cash conversation, same as any discount order).
+  const allowanceOrders = g.orders.filter(o=>o.order_type==='allowance' && !o.is_historical);
+  const willRefund = allowanceOrders.length > 0;
+  const refundTotal = allowanceOrders.reduce((s,o)=>s+Number(o.amount),0);
+  const isSplitGroup = new Set(g.orders.map(o=>o.order_type)).size > 1;
   const itemCount = g.orders.length+' item'+(g.orders.length>1?'s':'');
   const confirmMsg = first.is_historical
     ? 'Delete this historical record ('+itemCount+') for '+first.staff_name+'? No balance change will happen.'
-    : 'Delete this order ('+itemCount+') for '+first.staff_name+'?'+(willRefund ? ' R'+money(refundTotal)+' will be refunded to their balance.' : '');
+    : 'Delete this order ('+itemCount+') for '+first.staff_name+'?'
+      +(willRefund ? ' R'+money(refundTotal)+' will be refunded to their balance.' : '')
+      +(isSplitGroup ? ' This was a split purchase — only the allowance portion refunds; any pay-in amount is not refunded automatically.' : '');
   if(!confirm(confirmMsg)) return;
   try{
     if(willRefund){
@@ -1157,11 +1232,13 @@ async function deleteCartGroup(groupKey){
 }
 
 function exportDiscountReportCsv(){
-  const header = ['Date','Staff','SKU','Product','Qty','RSP Total','Discount Amount','Amount Payable','Invoiced'];
+  const header = ['Date','Staff','SKU','Product','Qty','RSP Total','Discount Amount','Amount Payable','Allowance Top-up','Invoiced'];
   const lines = [header.join(',')];
   discountRows.forEach(o=>{
-    const discountAmt = o.rsp*o.qty*CONFIG.DISCOUNT_RATE;
-    lines.push([new Date(o.created_at).toLocaleDateString('en-ZA'), o.staff_name, o.sku, '"'+String(o.product).replace(/"/g,'""')+'"', o.qty, (o.rsp*o.qty).toFixed(2), discountAmt.toFixed(2), Number(o.amount).toFixed(2), o.invoiced].join(','));
+    // derived from actual amount rather than a flat 40% — an allowance top-up row is charged at
+    // full RSP, so this correctly comes out to 0 discount for that portion
+    const discountAmt = o.rsp*o.qty - Number(o.amount);
+    lines.push([new Date(o.created_at).toLocaleDateString('en-ZA'), o.staff_name, o.sku, '"'+String(o.product).replace(/"/g,'""')+'"', o.qty, (o.rsp*o.qty).toFixed(2), discountAmt.toFixed(2), Number(o.amount).toFixed(2), o.is_topup ? 'yes' : '', o.invoiced].join(','));
   });
   const blob = new Blob([lines.join('\n')], {type:'text/csv'});
   const a = document.createElement('a');
