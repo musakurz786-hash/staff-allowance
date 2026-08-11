@@ -172,6 +172,16 @@
       </div>
 
       <div class="admin-section">
+        <h2>Import Sale Pricing (Markdown)</h2>
+        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Paste rows as <strong>Style [tab] Discount% [tab] MD RSP</strong>, one per line (copy straight from a spreadsheet, or from whatever list Musa's assistant transcribes for you). Matches by exact product name — anything that doesn't match is called out separately rather than skipped silently.</p>
+        <textarea id="salePricingInput" rows="8" style="width:100%;font-family:monospace;font-size:12px;padding:10px;border:1px solid #ccc;border-radius:3px" placeholder="Ladies Barrel Denim - Indigo&#9;60%&#9;518.00"></textarea>
+        <button class="secondary" style="margin-top:10px" onclick="previewSalePricing()">Preview Changes</button>
+        <div id="salePricingStatus" style="font-size:13px;margin-top:10px;color:var(--grey)"></div>
+        <div id="salePricingPreview" style="margin-top:10px;overflow-x:auto"></div>
+        <button class="primary" id="applySalePricingBtn" style="display:none" onclick="applySalePricing()">Apply Updates</button>
+      </div>
+
+      <div class="admin-section">
         <h2>Staff Allowance Periods</h2>
         <div class="row-flex" style="margin-bottom:14px">
           <div class="field"><label>New Period Label (e.g. 2027)</label><input type="text" id="newPeriod"></div>
@@ -1043,6 +1053,88 @@ async function savePriceEdit(sku){
     console.error(e);
     toast('Could not update price', true);
   }
+}
+
+let salePricingChanges = [];
+
+function previewSalePricing(){
+  const text = document.getElementById('salePricingInput').value.trim();
+  const status = document.getElementById('salePricingStatus');
+  const previewDiv = document.getElementById('salePricingPreview');
+  document.getElementById('applySalePricingBtn').style.display = 'none';
+  previewDiv.innerHTML = '';
+  salePricingChanges = [];
+  if(!text){ toast('Paste the sale pricing rows first', true); return; }
+
+  // expects "Style [tab] Discount% [tab] MD RSP" per line — only Style and the last (RSP) column
+  // actually matter for pricing; the discount% is just there because that's how the source lists
+  // are usually formatted, not something we store
+  const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
+  const parsedByName = {};
+  lines.forEach(line=>{
+    const parts = line.split('\t').map(p=>p.trim()).filter(p=>p!=='');
+    if(parts.length < 2) return;
+    const style = parts[0];
+    if(style.toLowerCase()==='style') return; // header row
+    const rsp = Number(parts[parts.length-1].replace(/[^0-9.]/g,''));
+    if(!style || isNaN(rsp)) return;
+    parsedByName[style.toLowerCase()] = { style, newRsp: rsp };
+  });
+
+  const productsByName = {};
+  PRODUCTS.forEach(p => productsByName[p.product.trim().toLowerCase()] = p);
+
+  const changes = [];
+  const notFound = [];
+  Object.values(parsedByName).forEach(entry=>{
+    const prod = productsByName[entry.style.toLowerCase()];
+    if(!prod){ notFound.push(entry.style); return; }
+    if(Math.round(Number(prod.rsp)*100) !== Math.round(entry.newRsp*100)){
+      changes.push({ sku: prod.sku, product: prod.product, currentRsp: Number(prod.rsp), newRsp: entry.newRsp });
+    }
+  });
+  salePricingChanges = changes;
+
+  let html = '';
+  if(notFound.length){
+    html += '<p style="font-size:12px;color:var(--bad)">Not matched to a product — check spelling/punctuation against the catalog: '+notFound.map(escapeHtml).join(', ')+'</p>';
+  }
+  if(!changes.length){
+    html += '<p style="font-size:13px;color:var(--grey)">Everything already matches — nothing to update.</p>';
+  } else {
+    html += '<table class="admin"><thead><tr><th>Product</th><th>SKU</th><th>Current RSP</th><th>New RSP</th></tr></thead><tbody>';
+    changes.forEach(c=>{
+      html += '<tr><td>'+escapeHtml(c.product)+'</td><td>'+escapeHtml(c.sku)+'</td><td>R'+money(c.currentRsp)+'</td><td>R'+money(c.newRsp)+'</td></tr>';
+    });
+    html += '</tbody></table>';
+    document.getElementById('applySalePricingBtn').style.display = 'block';
+  }
+  previewDiv.innerHTML = html;
+  status.textContent = changes.length+' product(s) would change'+(notFound.length ? ', '+notFound.length+' not matched' : '')+'. Nothing has been saved yet.';
+}
+
+async function applySalePricing(){
+  if(!salePricingChanges.length) return;
+  if(!confirm('Apply '+salePricingChanges.length+' price update(s)? This directly changes what staff pay/allowance is charged.')) return;
+  const status = document.getElementById('salePricingStatus');
+  try{
+    for(const c of salePricingChanges){
+      await sb('PATCH','products?sku=eq.'+encodeURIComponent(c.sku), {rsp: c.newRsp, updated_at: new Date().toISOString()});
+      const p = PRODUCTS.find(x=>x.sku===c.sku);
+      if(p) p.rsp = c.newRsp;
+      status.textContent = 'Updated '+c.product+'...';
+    }
+    status.textContent = 'Done — '+salePricingChanges.length+' product(s) updated.';
+    toast('Sale pricing updated');
+  }catch(e){
+    console.error(e);
+    status.textContent = 'Something went wrong partway through — re-run Preview to see what still needs updating.';
+    toast('Could not finish applying updates', true);
+  }
+  salePricingChanges = [];
+  document.getElementById('applySalePricingBtn').style.display = 'none';
+  document.getElementById('salePricingPreview').innerHTML = '';
+  document.getElementById('salePricingInput').value = '';
 }
 
 // groups a flat list of orders by cart (order_group_id), falling back to one-order-per-group
