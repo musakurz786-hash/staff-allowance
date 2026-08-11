@@ -653,7 +653,7 @@ async function submitCart(){
         remaining -= covered;
         if(covered > 0){
           rows.push({ staff_name: selectedStaff.name, sku: c.sku, product: c.product, qty: c.qty,
-            order_type: 'allowance', rsp: c.rsp, amount: covered, period: selectedStaff.period, order_group_id: groupId });
+            order_type: 'allowance', rsp: c.rsp, amount: covered, period: selectedStaff.period, order_group_id: groupId, is_topup: false });
         }
         const topup = itemTotal - covered;
         if(topup > 0){
@@ -662,11 +662,13 @@ async function submitCart(){
         }
       });
     } else {
+      // PostgREST's bulk insert requires every row in the array to have identical keys, so
+      // is_topup must be present (and false) here too, not just on split rows
       rows = cart.map(c => ({
         staff_name: selectedStaff.name, sku: c.sku, product: c.product, qty: c.qty,
         order_type: orderType, rsp: c.rsp,
         amount: orderType === 'allowance' ? c.rsp*c.qty : c.rsp*c.qty*(1-CONFIG.DISCOUNT_RATE),
-        period: selectedStaff.period, order_group_id: groupId
+        period: selectedStaff.period, order_group_id: groupId, is_topup: false
       }));
     }
     // orders saved first, balance touched only after that succeeds — so a failed insert never
