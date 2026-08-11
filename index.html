@@ -1199,16 +1199,22 @@ async function loadOrderHistory(){
 async function deleteCartGroup(groupKey){
   const g = discountGroups.find(x=>x.key===groupKey) || historyGroups.find(x=>x.key===groupKey);
   if(!g || !g.orders.length) return;
-  const first = g.orders[0];
+  // Re-fetch the COMPLETE set of rows sharing this cart's order_group_id, rather than trusting
+  // g.orders — the Discount Report only ever loads discount-type rows, so for a split order it
+  // only ever sees the pay-in half, not its allowance sibling. Deleting/refunding off that partial
+  // view would leave the allowance row behind and skip its refund entirely.
+  const groupId = g.orders[0].order_group_id;
+  const orders = groupId ? await sb('GET','orders?select=*&order_group_id=eq.'+encodeURIComponent(groupId)) : g.orders;
+  const first = orders[0];
   // Only the allowance-type rows in this group ever get refunded — historical (pre-app,
   // backfilled) ones never do, since the person's balance was already seeded net of those. For a
   // split order, the pay-in/discount-type rows were real money, not balance, so cancelling never
   // refunds that portion here (that's a manual cash conversation, same as any discount order).
-  const allowanceOrders = g.orders.filter(o=>o.order_type==='allowance' && !o.is_historical);
+  const allowanceOrders = orders.filter(o=>o.order_type==='allowance' && !o.is_historical);
   const willRefund = allowanceOrders.length > 0;
   const refundTotal = allowanceOrders.reduce((s,o)=>s+Number(o.amount),0);
-  const isSplitGroup = new Set(g.orders.map(o=>o.order_type)).size > 1;
-  const itemCount = g.orders.length+' item'+(g.orders.length>1?'s':'');
+  const isSplitGroup = new Set(orders.map(o=>o.order_type)).size > 1;
+  const itemCount = orders.length+' item'+(orders.length>1?'s':'');
   const confirmMsg = first.is_historical
     ? 'Delete this historical record ('+itemCount+') for '+first.staff_name+'? No balance change will happen.'
     : 'Delete this order ('+itemCount+') for '+first.staff_name+'?'
@@ -1223,7 +1229,7 @@ async function deleteCartGroup(groupKey){
         await sb('PATCH','staff?name=eq.'+encodeURIComponent(first.staff_name), {balance: newBalance});
       }
     }
-    const ids = g.orders.map(o=>o.id).join(',');
+    const ids = orders.map(o=>o.id).join(',');
     await sb('DELETE','orders?id=in.('+ids+')', null, {'Prefer':'return=minimal'});
     toast(first.is_historical ? 'Historical record deleted' : 'Order deleted'+(willRefund?' and balance refunded':''));
     loadOrderHistory();
