@@ -639,11 +639,6 @@ async function submitCart(){
   const groupId = selectedStaff.name.replace(/\s+/g,'')+'-'+Date.now();
 
   try{
-    if(orderType === 'allowance'){
-      await sb('PATCH','staff?name=eq.'+encodeURIComponent(selectedStaff.name), {balance: balanceAfter});
-      selectedStaff.balance = balanceAfter;
-    }
-
     // one order row per cart item (so each keeps its own real SKU/RSP for reporting), but all
     // tagged with the same group id so the whole cart shares one Cin7 invoice and one email —
     // except a split order, where at most one item straddles the allowance/pay-in boundary and
@@ -674,7 +669,14 @@ async function submitCart(){
         period: selectedStaff.period, order_group_id: groupId
       }));
     }
+    // orders saved first, balance touched only after that succeeds — so a failed insert never
+    // leaves a deducted balance with no order record to explain it
     await sb('POST','orders', rows, {'Prefer':'return=minimal'});
+
+    if(orderType === 'allowance'){
+      await sb('PATCH','staff?name=eq.'+encodeURIComponent(selectedStaff.name), {balance: balanceAfter});
+      selectedStaff.balance = balanceAfter;
+    }
 
     const orderDate = new Date().toLocaleDateString('en-ZA', {year:'numeric',month:'long',day:'numeric'});
     const toList = [selectedStaff.email, CONFIG.MANAGER_EMAIL, CONFIG.WAREHOUSE_EMAIL].filter((v,i,a)=>v && a.indexOf(v)===i).join(', ');
