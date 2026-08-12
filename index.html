@@ -1160,7 +1160,11 @@ async function applyShopifyPricing(){
   try{
     const batchSize = 500;
     for(let i=0;i<shopifyPricingChanges.length;i+=batchSize){
-      const batch = shopifyPricingChanges.slice(i,i+batchSize).map(c => ({ sku: c.sku, rsp: c.newRsp, available: c.newAvailable, updated_at: new Date().toISOString() }));
+      // include product name even though this should always be an update, not an insert - if any
+      // single SKU in a batch was stale in the client's cache (no longer a real row), PostgREST
+      // falls back to inserting it, and without a name that violates the NOT NULL constraint and
+      // rolls back the entire batch (that's what happened: PGRST 23502)
+      const batch = shopifyPricingChanges.slice(i,i+batchSize).map(c => ({ sku: c.sku, product: c.product, rsp: c.newRsp, available: c.newAvailable, updated_at: new Date().toISOString() }));
       await sb('POST','products', batch, {'Prefer':'resolution=merge-duplicates,return=minimal'});
       status.textContent = 'Updated '+Math.min(i+batchSize,shopifyPricingChanges.length)+' / '+shopifyPricingChanges.length+'...';
     }
