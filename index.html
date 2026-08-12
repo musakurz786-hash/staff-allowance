@@ -172,8 +172,8 @@
       </div>
 
       <div class="admin-section">
-        <h2>Import Shopify Pricing</h2>
-        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Upload a Matrixify products export (.xlsx). Matches by SKU (Variant SKU / Variant Price columns) and updates RSP — the real source of truth for current selling price, sale or not.</p>
+        <h2>Import Shopify Pricing &amp; Stock (HQ)</h2>
+        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Upload a Matrixify products export (.xlsx) scoped to HQ. Matches by SKU and updates RSP (Variant Price) and stock (Variant Inventory Qty) together — can replace the Cin7 daily stock report once you're happy it's reliable.</p>
         <input type="file" id="shopifyPricingFile" accept=".xlsx,.xls,.csv">
         <button class="secondary" style="margin-top:10px" onclick="previewShopifyPricing()">Preview Changes</button>
         <div id="shopifyPricingStatus" style="font-size:13px;margin-top:10px;color:var(--grey)"></div>
@@ -1097,6 +1097,7 @@ async function previewShopifyPricing(){
   const header = rows[headerIdx].map(h => String(h).trim().toLowerCase());
   const skuCol = header.indexOf('variant sku');
   const priceCol = header.indexOf('variant price');
+  const qtyCol = header.indexOf('variant inventory qty');
   if(priceCol < 0){ status.textContent = 'Could not find a "Variant Price" column in this file.'; return; }
 
   const productsBySku = {};
@@ -1113,10 +1114,16 @@ async function previewShopifyPricing(){
     if(priceRaw===undefined || priceRaw==='' || isNaN(Number(priceRaw))) continue;
     seen.add(sku);
     const newRsp = Number(priceRaw);
+    const newAvailable = qtyCol>=0 && r[qtyCol]!==undefined && r[qtyCol]!=='' && !isNaN(Number(r[qtyCol])) ? Number(r[qtyCol]) : null;
     const prod = productsBySku[sku];
     if(!prod){ notFound.push(sku); continue; }
-    if(Math.round(Number(prod.rsp)*100) !== Math.round(newRsp*100)){
-      changes.push({ sku, product: prod.product, currentRsp: Number(prod.rsp), newRsp });
+    const rspChanged = Math.round(Number(prod.rsp)*100) !== Math.round(newRsp*100);
+    const stockChanged = newAvailable !== null && Number(prod.available) !== newAvailable;
+    if(rspChanged || stockChanged){
+      changes.push({ sku, product: prod.product,
+        currentRsp: Number(prod.rsp), newRsp,
+        currentAvailable: Number(prod.available), newAvailable: newAvailable!==null ? newAvailable : Number(prod.available),
+        rspChanged, stockChanged });
     }
   }
   shopifyPricingChanges = changes;
@@ -1125,12 +1132,19 @@ async function previewShopifyPricing(){
   if(notFound.length){
     html += '<p style="font-size:12px;color:var(--bad)">'+notFound.length+' SKU(s) in this file don\'t exist in the catalog (check for typos/discontinued items) — first few: '+notFound.slice(0,20).map(escapeHtml).join(', ')+(notFound.length>20?', …':'')+'</p>';
   }
+  if(qtyCol < 0){
+    html += '<p style="font-size:12px;color:var(--grey)">No "Variant Inventory Qty" column found — only pricing will be updated from this file.</p>';
+  }
   if(!changes.length){
     html += '<p style="font-size:13px;color:var(--grey)">Everything already matches — nothing to update.</p>';
   } else {
-    html += '<table class="admin"><thead><tr><th>Product</th><th>SKU</th><th>Current RSP</th><th>New RSP</th></tr></thead><tbody>';
+    html += '<table class="admin"><thead><tr><th>Product</th><th>SKU</th><th>Current RSP</th><th>New RSP</th><th>Current Stock</th><th>New Stock</th></tr></thead><tbody>';
     changes.forEach(c=>{
-      html += '<tr><td>'+escapeHtml(c.product)+'</td><td>'+escapeHtml(c.sku)+'</td><td>R'+money(c.currentRsp)+'</td><td>R'+money(c.newRsp)+'</td></tr>';
+      html += '<tr><td>'+escapeHtml(c.product)+'</td><td>'+escapeHtml(c.sku)+'</td>'+
+        '<td style="'+(c.rspChanged?'font-weight:bold':'color:var(--grey)')+'">R'+money(c.currentRsp)+'</td>'+
+        '<td style="'+(c.rspChanged?'font-weight:bold':'color:var(--grey)')+'">R'+money(c.newRsp)+'</td>'+
+        '<td style="'+(c.stockChanged?'font-weight:bold':'color:var(--grey)')+'">'+c.currentAvailable+'</td>'+
+        '<td style="'+(c.stockChanged?'font-weight:bold':'color:var(--grey)')+'">'+c.newAvailable+'</td></tr>';
     });
     html += '</tbody></table>';
     document.getElementById('applyShopifyPricingBtn').style.display = 'block';
@@ -1141,18 +1155,18 @@ async function previewShopifyPricing(){
 
 async function applyShopifyPricing(){
   if(!shopifyPricingChanges.length) return;
-  if(!confirm('Apply '+shopifyPricingChanges.length+' price update(s)? This directly changes what staff pay/allowance is charged.')) return;
+  if(!confirm('Apply '+shopifyPricingChanges.length+' update(s)? This directly changes what staff pay/allowance is charged and what shows as in stock.')) return;
   const status = document.getElementById('shopifyPricingStatus');
   try{
     const batchSize = 500;
     for(let i=0;i<shopifyPricingChanges.length;i+=batchSize){
-      const batch = shopifyPricingChanges.slice(i,i+batchSize).map(c => ({ sku: c.sku, rsp: c.newRsp, updated_at: new Date().toISOString() }));
+      const batch = shopifyPricingChanges.slice(i,i+batchSize).map(c => ({ sku: c.sku, rsp: c.newRsp, available: c.newAvailable, updated_at: new Date().toISOString() }));
       await sb('POST','products', batch, {'Prefer':'resolution=merge-duplicates,return=minimal'});
       status.textContent = 'Updated '+Math.min(i+batchSize,shopifyPricingChanges.length)+' / '+shopifyPricingChanges.length+'...';
     }
-    shopifyPricingChanges.forEach(c=>{ const p = PRODUCTS.find(x=>x.sku===c.sku); if(p) p.rsp = c.newRsp; });
+    shopifyPricingChanges.forEach(c=>{ const p = PRODUCTS.find(x=>x.sku===c.sku); if(p){ p.rsp = c.newRsp; p.available = c.newAvailable; } });
     status.textContent = 'Done — '+shopifyPricingChanges.length+' product(s) updated.';
-    toast('Shopify pricing applied');
+    toast('Shopify pricing/stock applied');
   }catch(e){
     console.error(e);
     status.textContent = 'Something went wrong partway through — re-run Preview to see what still needs updating.';
