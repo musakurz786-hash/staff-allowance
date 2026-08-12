@@ -172,8 +172,18 @@
       </div>
 
       <div class="admin-section">
-        <h2>Import Sale Pricing (Markdown)</h2>
-        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Paste rows as <strong>Style [tab] Discount% [tab] MD RSP</strong>, one per line (copy straight from a spreadsheet, or from whatever list Musa's assistant transcribes for you). Matches by exact product name — anything that doesn't match is called out separately rather than skipped silently.</p>
+        <h2>Import Shopify Pricing</h2>
+        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Upload a Matrixify products export (.xlsx). Matches by SKU (Variant SKU / Variant Price columns) and updates RSP — the real source of truth for current selling price, sale or not.</p>
+        <input type="file" id="shopifyPricingFile" accept=".xlsx,.xls,.csv">
+        <button class="secondary" style="margin-top:10px" onclick="previewShopifyPricing()">Preview Changes</button>
+        <div id="shopifyPricingStatus" style="font-size:13px;margin-top:10px;color:var(--grey)"></div>
+        <div id="shopifyPricingPreview" style="margin-top:10px;overflow-x:auto;max-height:400px;overflow-y:auto"></div>
+        <button class="primary" id="applyShopifyPricingBtn" style="display:none" onclick="applyShopifyPricing()">Apply Updates</button>
+      </div>
+
+      <div class="admin-section">
+        <h2>Import Sale Pricing (Markdown, manual paste)</h2>
+        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Fallback for one-off lists with no Matrixify export handy. Paste rows as <strong>Style [tab] Discount% [tab] MD RSP</strong>, one per line. Matches by exact product name, which is less reliable than the Shopify import above — use that instead when you can.</p>
         <textarea id="salePricingInput" rows="8" style="width:100%;font-family:monospace;font-size:12px;padding:10px;border:1px solid #ccc;border-radius:3px" placeholder="Ladies Barrel Denim - Indigo&#9;60%&#9;518.00"></textarea>
         <button class="secondary" style="margin-top:10px" onclick="previewSalePricing()">Preview Changes</button>
         <div id="salePricingStatus" style="font-size:13px;margin-top:10px;color:var(--grey)"></div>
@@ -1053,6 +1063,104 @@ async function savePriceEdit(sku){
     console.error(e);
     toast('Could not update price', true);
   }
+}
+
+let shopifyPricingChanges = [];
+
+function findMatrixifyProductsSheet(wb){
+  if(wb.Sheets['Products']) return wb.Sheets['Products'];
+  for(const name of wb.SheetNames){
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], {header:1});
+    if(rows.some(r => r.some(c => String(c).trim().toLowerCase()==='variant sku'))) return wb.Sheets[name];
+  }
+  return null;
+}
+
+async function previewShopifyPricing(){
+  const input = document.getElementById('shopifyPricingFile');
+  const status = document.getElementById('shopifyPricingStatus');
+  const previewDiv = document.getElementById('shopifyPricingPreview');
+  document.getElementById('applyShopifyPricingBtn').style.display = 'none';
+  previewDiv.innerHTML = '';
+  shopifyPricingChanges = [];
+  if(!input.files.length){ toast('Choose a file first', true); return; }
+
+  status.textContent = 'Reading file...';
+  const file = input.files[0];
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, {type:'array'});
+  const ws = findMatrixifyProductsSheet(wb);
+  if(!ws){ status.textContent = 'Could not find a "Variant SKU" column in this file — is it a Matrixify products export?'; return; }
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1});
+
+  const headerIdx = rows.findIndex(r => r.some(c => String(c).trim().toLowerCase()==='variant sku'));
+  const header = rows[headerIdx].map(h => String(h).trim().toLowerCase());
+  const skuCol = header.indexOf('variant sku');
+  const priceCol = header.indexOf('variant price');
+  if(priceCol < 0){ status.textContent = 'Could not find a "Variant Price" column in this file.'; return; }
+
+  const productsBySku = {};
+  PRODUCTS.forEach(p => productsBySku[p.sku] = p);
+
+  const changes = [];
+  const notFound = [];
+  const seen = new Set();
+  for(let i=headerIdx+1;i<rows.length;i++){
+    const r = rows[i];
+    const sku = r[skuCol] ? String(r[skuCol]).trim() : '';
+    if(!sku || seen.has(sku)) continue;
+    const priceRaw = r[priceCol];
+    if(priceRaw===undefined || priceRaw==='' || isNaN(Number(priceRaw))) continue;
+    seen.add(sku);
+    const newRsp = Number(priceRaw);
+    const prod = productsBySku[sku];
+    if(!prod){ notFound.push(sku); continue; }
+    if(Math.round(Number(prod.rsp)*100) !== Math.round(newRsp*100)){
+      changes.push({ sku, product: prod.product, currentRsp: Number(prod.rsp), newRsp });
+    }
+  }
+  shopifyPricingChanges = changes;
+
+  let html = '';
+  if(notFound.length){
+    html += '<p style="font-size:12px;color:var(--bad)">'+notFound.length+' SKU(s) in this file don\'t exist in the catalog (check for typos/discontinued items) — first few: '+notFound.slice(0,20).map(escapeHtml).join(', ')+(notFound.length>20?', …':'')+'</p>';
+  }
+  if(!changes.length){
+    html += '<p style="font-size:13px;color:var(--grey)">Everything already matches — nothing to update.</p>';
+  } else {
+    html += '<table class="admin"><thead><tr><th>Product</th><th>SKU</th><th>Current RSP</th><th>New RSP</th></tr></thead><tbody>';
+    changes.forEach(c=>{
+      html += '<tr><td>'+escapeHtml(c.product)+'</td><td>'+escapeHtml(c.sku)+'</td><td>R'+money(c.currentRsp)+'</td><td>R'+money(c.newRsp)+'</td></tr>';
+    });
+    html += '</tbody></table>';
+    document.getElementById('applyShopifyPricingBtn').style.display = 'block';
+  }
+  previewDiv.innerHTML = html;
+  status.textContent = changes.length+' product(s) would change'+(notFound.length ? ', '+notFound.length+' SKU(s) not in catalog' : '')+'. Nothing has been saved yet.';
+}
+
+async function applyShopifyPricing(){
+  if(!shopifyPricingChanges.length) return;
+  if(!confirm('Apply '+shopifyPricingChanges.length+' price update(s)? This directly changes what staff pay/allowance is charged.')) return;
+  const status = document.getElementById('shopifyPricingStatus');
+  try{
+    const batchSize = 500;
+    for(let i=0;i<shopifyPricingChanges.length;i+=batchSize){
+      const batch = shopifyPricingChanges.slice(i,i+batchSize).map(c => ({ sku: c.sku, rsp: c.newRsp, updated_at: new Date().toISOString() }));
+      await sb('POST','products', batch, {'Prefer':'resolution=merge-duplicates,return=minimal'});
+      status.textContent = 'Updated '+Math.min(i+batchSize,shopifyPricingChanges.length)+' / '+shopifyPricingChanges.length+'...';
+    }
+    shopifyPricingChanges.forEach(c=>{ const p = PRODUCTS.find(x=>x.sku===c.sku); if(p) p.rsp = c.newRsp; });
+    status.textContent = 'Done — '+shopifyPricingChanges.length+' product(s) updated.';
+    toast('Shopify pricing applied');
+  }catch(e){
+    console.error(e);
+    status.textContent = 'Something went wrong partway through — re-run Preview to see what still needs updating.';
+    toast('Could not finish applying updates', true);
+  }
+  shopifyPricingChanges = [];
+  document.getElementById('applyShopifyPricingBtn').style.display = 'none';
+  document.getElementById('shopifyPricingPreview').innerHTML = '';
 }
 
 let salePricingChanges = [];
