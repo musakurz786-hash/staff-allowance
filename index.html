@@ -172,8 +172,8 @@
       </div>
 
       <div class="admin-section">
-        <h2>Import Shopify Pricing &amp; Stock (HQ)</h2>
-        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Upload a Matrixify products export (.xlsx) scoped to HQ. Matches by SKU and updates RSP/stock for existing products; genuinely new SKUs are added too, but only if Shopify has them marked Active (Draft/Archived items are skipped on purpose). Can replace the Cin7 daily stock report once you're happy it's reliable.</p>
+        <h2>Import Shopify Pricing</h2>
+        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Upload a Matrixify products export (.xlsx). Matches by SKU and updates RSP only — Shopify's "Variant Inventory Qty" turned out not to be reliably HQ-specific (it reads as store-wide total, not per-location), so stock stays exclusively sourced from the Cin7 daily report to avoid corrupting availability. Genuinely new Active SKUs are still added (stock starts at 0 until the next Cin7 import picks them up).</p>
         <input type="file" id="shopifyPricingFile" accept=".xlsx,.xls,.csv">
         <button class="secondary" style="margin-top:10px" onclick="previewShopifyPricing()">Preview Changes</button>
         <div id="shopifyPricingStatus" style="font-size:13px;margin-top:10px;color:var(--grey)"></div>
@@ -1100,7 +1100,6 @@ async function previewShopifyPricing(){
   const header = rows[headerIdx].map(h => String(h).trim().toLowerCase());
   const skuCol = header.indexOf('variant sku');
   const priceCol = header.indexOf('variant price');
-  const qtyCol = header.indexOf('variant inventory qty');
   const titleCol = header.indexOf('title');
   const typeCol = header.indexOf('type');
   const statusCol = header.indexOf('status');
@@ -1122,29 +1121,25 @@ async function previewShopifyPricing(){
     if(priceRaw===undefined || priceRaw==='' || isNaN(Number(priceRaw))) continue;
     seen.add(sku);
     const newRsp = Number(priceRaw);
-    const newAvailable = qtyCol>=0 && r[qtyCol]!==undefined && r[qtyCol]!=='' && !isNaN(Number(r[qtyCol])) ? Number(r[qtyCol]) : null;
     const prod = productsBySku[sku];
 
     if(prod){
-      const rspChanged = Math.round(Number(prod.rsp)*100) !== Math.round(newRsp*100);
-      const stockChanged = newAvailable !== null && Number(prod.available) !== newAvailable;
-      if(rspChanged || stockChanged){
-        changes.push({ sku, product: prod.product,
-          currentRsp: Number(prod.rsp), newRsp,
-          currentAvailable: Number(prod.available), newAvailable: newAvailable!==null ? newAvailable : Number(prod.available),
-          rspChanged, stockChanged });
+      // pricing only — stock deliberately stays sourced from Cin7, see the note above
+      if(Math.round(Number(prod.rsp)*100) !== Math.round(newRsp*100)){
+        changes.push({ sku, product: prod.product, currentRsp: Number(prod.rsp), newRsp });
       }
       continue;
     }
 
     // not in the catalog yet — only add it if Shopify actually has it Active (Draft/Archived
-    // items are excluded on purpose, not because of a matching failure)
+    // items are excluded on purpose, not because of a matching failure). Stock starts at 0 and
+    // gets filled in by the next Cin7 stock import, not from this file.
     const statusVal = statusCol>=0 ? String(r[statusCol]||'').trim().toLowerCase() : 'active';
     if(statusVal && statusVal !== 'active'){ skippedInactive++; continue; }
     const title = titleCol>=0 ? String(r[titleCol]||'').trim() : '';
     if(!title){ skippedNoTitle++; continue; }
     const type = typeCol>=0 ? String(r[typeCol]||'').trim() : '';
-    newProducts.push({ sku, product: title, category: type || null, rsp: newRsp, available: newAvailable!==null ? newAvailable : 0 });
+    newProducts.push({ sku, product: title, category: type || null, rsp: newRsp, available: 0 });
   }
   shopifyPricingChanges = changes;
   shopifyNewProducts = newProducts;
@@ -1156,26 +1151,21 @@ async function previewShopifyPricing(){
   if(skippedNoTitle){
     html += '<p style="font-size:12px;color:var(--bad)">'+skippedNoTitle+' SKU(s) are Active but had no title, so couldn\'t be added — check these in Shopify.</p>';
   }
-  if(qtyCol < 0){
-    html += '<p style="font-size:12px;color:var(--grey)">No "Variant Inventory Qty" column found — only pricing will be updated/set from this file.</p>';
-  }
   if(newProducts.length){
-    html += '<h3 style="font-size:13px;margin:16px 0 6px">New products to add ('+newProducts.length+')</h3>';
-    html += '<table class="admin"><thead><tr><th>Product</th><th>SKU</th><th>Category</th><th>RSP</th><th>Stock</th></tr></thead><tbody>';
+    html += '<h3 style="font-size:13px;margin:16px 0 6px">New products to add ('+newProducts.length+') — stock starts at 0 until the next Cin7 import</h3>';
+    html += '<table class="admin"><thead><tr><th>Product</th><th>SKU</th><th>Category</th><th>RSP</th></tr></thead><tbody>';
     newProducts.forEach(n=>{
-      html += '<tr><td>'+escapeHtml(n.product)+'</td><td>'+escapeHtml(n.sku)+'</td><td>'+escapeHtml(n.category||'')+'</td><td>R'+money(n.rsp)+'</td><td>'+n.available+'</td></tr>';
+      html += '<tr><td>'+escapeHtml(n.product)+'</td><td>'+escapeHtml(n.sku)+'</td><td>'+escapeHtml(n.category||'')+'</td><td>R'+money(n.rsp)+'</td></tr>';
     });
     html += '</tbody></table>';
   }
   if(changes.length){
     html += '<h3 style="font-size:13px;margin:16px 0 6px">Existing products to update ('+changes.length+')</h3>';
-    html += '<table class="admin"><thead><tr><th>Product</th><th>SKU</th><th>Current RSP</th><th>New RSP</th><th>Current Stock</th><th>New Stock</th></tr></thead><tbody>';
+    html += '<table class="admin"><thead><tr><th>Product</th><th>SKU</th><th>Current RSP</th><th>New RSP</th></tr></thead><tbody>';
     changes.forEach(c=>{
       html += '<tr><td>'+escapeHtml(c.product)+'</td><td>'+escapeHtml(c.sku)+'</td>'+
-        '<td style="'+(c.rspChanged?'font-weight:bold':'color:var(--grey)')+'">R'+money(c.currentRsp)+'</td>'+
-        '<td style="'+(c.rspChanged?'font-weight:bold':'color:var(--grey)')+'">R'+money(c.newRsp)+'</td>'+
-        '<td style="'+(c.stockChanged?'font-weight:bold':'color:var(--grey)')+'">'+c.currentAvailable+'</td>'+
-        '<td style="'+(c.stockChanged?'font-weight:bold':'color:var(--grey)')+'">'+c.newAvailable+'</td></tr>';
+        '<td>R'+money(c.currentRsp)+'</td>'+
+        '<td>R'+money(c.newRsp)+'</td></tr>';
     });
     html += '</tbody></table>';
   }
@@ -1191,21 +1181,29 @@ async function previewShopifyPricing(){
 async function applyShopifyPricing(){
   const total = shopifyPricingChanges.length + shopifyNewProducts.length;
   if(!total) return;
-  if(!confirm('Apply '+total+' change(s) ('+shopifyNewProducts.length+' new, '+shopifyPricingChanges.length+' updated)? This directly changes what staff pay/allowance is charged and what shows as in stock.')) return;
+  if(!confirm('Apply '+total+' change(s) ('+shopifyNewProducts.length+' new, '+shopifyPricingChanges.length+' price updates)? This directly changes what staff pay/allowance is charged. Stock is not touched by this import.')) return;
   const status = document.getElementById('shopifyPricingStatus');
   try{
-    const all = shopifyPricingChanges.map(c => ({ sku: c.sku, product: c.product, rsp: c.newRsp, available: c.newAvailable, updated_at: new Date().toISOString() }))
-      .concat(shopifyNewProducts.map(n => ({ sku: n.sku, product: n.product, category: n.category, rsp: n.rsp, available: n.available, updated_at: new Date().toISOString() })));
     const batchSize = 500;
-    for(let i=0;i<all.length;i+=batchSize){
-      const batch = all.slice(i,i+batchSize);
-      await sb('POST','products', batch, {'Prefer':'resolution=merge-duplicates,return=minimal'});
-      status.textContent = 'Updated '+Math.min(i+batchSize,all.length)+' / '+all.length+'...';
+    // existing rows: only rsp is sent (a different key set than new products below), so available
+    // is left completely untouched — stock stays exclusively whatever Cin7 last set it to. Kept as
+    // its own separate upsert call rather than combined with new-product rows, since PostgREST's
+    // bulk upsert requires every object in one request to have identical keys (see PGRST102, hit
+    // earlier today) and these two row shapes genuinely differ.
+    const updates = shopifyPricingChanges.map(c => ({ sku: c.sku, product: c.product, rsp: c.newRsp, updated_at: new Date().toISOString() }));
+    for(let i=0;i<updates.length;i+=batchSize){
+      await sb('POST','products', updates.slice(i,i+batchSize), {'Prefer':'resolution=merge-duplicates,return=minimal'});
+      status.textContent = 'Updated '+Math.min(i+batchSize,updates.length)+' / '+updates.length+' price(s)...';
+    }
+    const inserts = shopifyNewProducts.map(n => ({ sku: n.sku, product: n.product, category: n.category, rsp: n.rsp, available: n.available, updated_at: new Date().toISOString() }));
+    for(let i=0;i<inserts.length;i+=batchSize){
+      await sb('POST','products', inserts.slice(i,i+batchSize), {'Prefer':'resolution=merge-duplicates,return=minimal'});
+      status.textContent = 'Added '+Math.min(i+batchSize,inserts.length)+' / '+inserts.length+' new product(s)...';
     }
     status.textContent = 'Done — '+total+' product(s) applied ('+shopifyNewProducts.length+' new). Reloading catalog...';
     PRODUCTS = await sbAll('products?select=*&order=product.asc');
     status.textContent = 'Done — '+total+' product(s) applied ('+shopifyNewProducts.length+' new).';
-    toast('Shopify pricing/stock applied');
+    toast('Shopify pricing applied');
   }catch(e){
     console.error(e);
     status.textContent = 'Something went wrong partway through — re-run Preview to see what still needs updating.';
