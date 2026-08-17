@@ -391,7 +391,14 @@ async function boot(){
   const { data } = await supa.auth.getSession();
   currentSession = data.session;
   supa.auth.onAuthStateChange((event, session) => {
+    // Only react when *who's* logged in actually changes — not on every auth event. Supabase
+    // fires a background TOKEN_REFRESHED roughly hourly for any open session, and changePin()'s
+    // own reauth-as-yourself also fires SIGNED_IN; without this check either one would silently
+    // call handleAuthChange() -> renderBalanceCard() and wipe whatever's in the cart mid-session.
+    const prevUserId = currentSession && currentSession.user && currentSession.user.id;
+    const newUserId = session && session.user && session.user.id;
     currentSession = session;
+    if(prevUserId === newUserId) return;
     handleAuthChange();
   });
   await handleAuthChange();
@@ -458,11 +465,21 @@ async function initOrderView(){
     document.getElementById('productSearch').disabled = false;
   }catch(e){ console.error(e); toast('Could not load product catalog', true); }
 
+  let duplicateMatch = false;
   try{
-    const rows = await sb('GET','staff?select=*&email=eq.'+encodeURIComponent(currentEmail));
-    selectedStaff = rows[0] || null;
+    const rows = await sb('GET','staff?select=*&email=eq.'+encodeURIComponent(currentEmail)+'&order=id.asc');
+    // addStaff/saveStaffEmail now block creating a duplicate email, but this guards against any
+    // that already exist rather than silently guessing whose record to show
+    duplicateMatch = rows.length > 1;
+    selectedStaff = duplicateMatch ? null : (rows[0] || null);
   }catch(e){ console.error(e); selectedStaff = null; }
 
+  if(duplicateMatch){
+    document.getElementById('staffNotLinked').style.display = 'block';
+    document.getElementById('orderContent').style.display = 'none';
+    document.getElementById('notLinkedEmail').textContent = currentEmail+' (linked to more than one staff record — contact Musa to fix this before ordering)';
+    return;
+  }
   if(!selectedStaff){
     document.getElementById('staffNotLinked').style.display = 'block';
     document.getElementById('orderContent').style.display = 'none';
@@ -627,75 +644,84 @@ async function buildAllowanceSummary(staffName, period, allowance){
 async function submitCart(){
   if(!selectedStaff || !cart.length) return;
   const {totalRsp, amount} = cartTotals();
+  const totalQty = cart.reduce((s,c)=>s+c.qty, 0);
+  const groupId = selectedStaff.name.replace(/\s+/g,'')+'-'+Date.now();
 
   // Split payment: if an allowance order costs more than what's left, use up the remaining
   // balance and let the shortfall go through as a full-price pay-in — invoiced the same way a
   // Staff Discount purchase is, since it's real money changing hands rather than allowance spend.
+  // Allocation works in whole units per cart line (not raw dollar amounts) so a multi-qty item
+  // that straddles the boundary splits into two rows with correct, non-overlapping quantities
+  // (e.g. qty 2 becomes a qty-1 allowance row + a qty-1 pay-in row, not two qty-2 rows).
   let isSplit = false;
+  let rows;
   let allowanceAmountTotal = amount;
   let topupAmountTotal = 0;
+
   if(orderType === 'allowance' && amount > selectedStaff.balance){
     if(selectedStaff.balance <= 0){
       toast('No allowance balance left for this order', true); return;
     }
-    const shortfall = amount - selectedStaff.balance;
+    let remaining = selectedStaff.balance;
+    let coveredTotal = 0, topupTotal = 0;
+    const splitRows = [];
+    cart.forEach(c => {
+      const coveredQty = c.rsp > 0 ? Math.min(c.qty, Math.floor(remaining / c.rsp)) : c.qty;
+      const topupQty = c.qty - coveredQty;
+      if(coveredQty > 0){
+        const amt = coveredQty * c.rsp;
+        coveredTotal += amt; remaining -= amt;
+        splitRows.push({ staff_name: selectedStaff.name, sku: c.sku, product: c.product, qty: coveredQty,
+          order_type: 'allowance', rsp: c.rsp, amount: amt, period: selectedStaff.period, order_group_id: groupId, is_topup: false });
+      }
+      if(topupQty > 0){
+        const amt = topupQty * c.rsp;
+        topupTotal += amt;
+        splitRows.push({ staff_name: selectedStaff.name, sku: c.sku, product: c.product, qty: topupQty,
+          order_type: 'discount', rsp: c.rsp, amount: amt, period: selectedStaff.period, order_group_id: groupId, is_topup: true });
+      }
+    });
     const proceed = confirm(
-      'Your allowance only covers R'+money(selectedStaff.balance)+' of this R'+money(amount)+' order.\n\n'+
-      'R'+money(selectedStaff.balance)+' will be deducted from your allowance, and you\'ll pay in the remaining '+
-      'R'+money(shortfall)+' at full price — invoiced separately, the same as a Staff Discount purchase.\n\nProceed?'
+      'Your allowance only covers R'+money(coveredTotal)+' of this R'+money(amount)+' order (in whole units).\n\n'+
+      'R'+money(coveredTotal)+' will be deducted from your allowance, and you\'ll pay in the remaining '+
+      'R'+money(topupTotal)+' at full price — invoiced separately, the same as a Staff Discount purchase.\n\nProceed?'
     );
     if(!proceed) return;
     isSplit = true;
-    allowanceAmountTotal = selectedStaff.balance;
-    topupAmountTotal = shortfall;
+    rows = splitRows;
+    allowanceAmountTotal = coveredTotal;
+    topupAmountTotal = topupTotal;
+  } else {
+    // PostgREST's bulk insert requires every row in the array to have identical keys, so
+    // is_topup must be present (and false) here too, not just on split rows
+    rows = cart.map(c => ({
+      staff_name: selectedStaff.name, sku: c.sku, product: c.product, qty: c.qty,
+      order_type: orderType, rsp: c.rsp,
+      amount: orderType === 'allowance' ? c.rsp*c.qty : c.rsp*c.qty*(1-CONFIG.DISCOUNT_RATE),
+      period: selectedStaff.period, order_group_id: groupId, is_topup: false
+    }));
   }
 
   const btn = document.getElementById('submitBtn');
   btn.disabled = true; btn.textContent = 'Placing order...';
 
-  const balanceBefore = selectedStaff.balance;
-  const balanceAfter = orderType === 'allowance' ? (balanceBefore - allowanceAmountTotal) : balanceBefore;
-  const totalQty = cart.reduce((s,c)=>s+c.qty, 0);
-  const groupId = selectedStaff.name.replace(/\s+/g,'')+'-'+Date.now();
+  let balanceBefore = selectedStaff.balance;
+  let balanceAfter = orderType === 'allowance' ? (balanceBefore - allowanceAmountTotal) : balanceBefore;
 
   try{
-    // one order row per cart item (so each keeps its own real SKU/RSP for reporting), but all
-    // tagged with the same group id so the whole cart shares one Cin7 invoice and one email —
-    // except a split order, where at most one item straddles the allowance/pay-in boundary and
-    // becomes two rows so both halves still add up to that item's full RSP.
-    let rows;
-    if(isSplit){
-      let remaining = allowanceAmountTotal;
-      rows = [];
-      cart.forEach(c => {
-        const itemTotal = c.rsp*c.qty;
-        const covered = Math.max(0, Math.min(itemTotal, remaining));
-        remaining -= covered;
-        if(covered > 0){
-          rows.push({ staff_name: selectedStaff.name, sku: c.sku, product: c.product, qty: c.qty,
-            order_type: 'allowance', rsp: c.rsp, amount: covered, period: selectedStaff.period, order_group_id: groupId, is_topup: false });
-        }
-        const topup = itemTotal - covered;
-        if(topup > 0){
-          rows.push({ staff_name: selectedStaff.name, sku: c.sku, product: c.product, qty: c.qty,
-            order_type: 'discount', rsp: c.rsp, amount: topup, period: selectedStaff.period, order_group_id: groupId, is_topup: true });
-        }
-      });
-    } else {
-      // PostgREST's bulk insert requires every row in the array to have identical keys, so
-      // is_topup must be present (and false) here too, not just on split rows
-      rows = cart.map(c => ({
-        staff_name: selectedStaff.name, sku: c.sku, product: c.product, qty: c.qty,
-        order_type: orderType, rsp: c.rsp,
-        amount: orderType === 'allowance' ? c.rsp*c.qty : c.rsp*c.qty*(1-CONFIG.DISCOUNT_RATE),
-        period: selectedStaff.period, order_group_id: groupId, is_topup: false
-      }));
-    }
     // orders saved first, balance touched only after that succeeds — so a failed insert never
     // leaves a deducted balance with no order record to explain it
     await sb('POST','orders', rows, {'Prefer':'return=minimal'});
 
     if(orderType === 'allowance'){
+      // re-fetch the live balance right before writing rather than trusting whatever was cached
+      // at page load — narrows the window for a concurrent admin edit (e.g. an Allowance Tracker
+      // import) to get silently overwritten by a stale PATCH. Both before/after are taken from
+      // this same fresh read so the numbers shown to the person stay internally consistent even
+      // if their balance changed since the page loaded.
+      const freshRows = await sb('GET','staff?select=balance&name=eq.'+encodeURIComponent(selectedStaff.name));
+      balanceBefore = freshRows[0] ? Number(freshRows[0].balance) : balanceBefore;
+      balanceAfter = balanceBefore - allowanceAmountTotal;
       await sb('PATCH','staff?name=eq.'+encodeURIComponent(selectedStaff.name), {balance: balanceAfter});
       selectedStaff.balance = balanceAfter;
     }
@@ -786,10 +812,17 @@ async function loadStaffTable(){
 
 async function addStaff(){
   const name = document.getElementById('newStaffName').value.trim();
-  const email = document.getElementById('newStaffEmail').value.trim();
+  // lowercased so it matches what login()/signup() always send when looking up this row —
+  // otherwise a mixed-case email on file can never match a login attempt (real incident already
+  // hit today with Linzee/Pippa's capitalized addresses)
+  const email = document.getElementById('newStaffEmail').value.trim().toLowerCase();
   const allowance = Number(document.getElementById('newStaffAllowance').value) || 0;
   if(!name){ toast('Enter a name first', true); return; }
   try{
+    if(email){
+      const clash = await sb('GET','staff?select=name&email=eq.'+encodeURIComponent(email));
+      if(clash.length){ toast('That email is already used by '+clash[0].name, true); return; }
+    }
     await sb('POST','staff', {
       name, email: email || null, allowance, balance: allowance, period: CONFIG.CURRENT_PERIOD
     }, {'Prefer':'return=minimal'});
@@ -805,8 +838,12 @@ async function addStaff(){
 }
 
 async function saveStaffEmail(name, email){
-  email = email.trim();
+  email = email.trim().toLowerCase(); // see addStaff() for why this must match login's lowercasing
   try{
+    if(email){
+      const clash = await sb('GET','staff?select=name&email=eq.'+encodeURIComponent(email));
+      if(clash.length && clash[0].name !== name){ toast('That email is already used by '+clash[0].name, true); return; }
+    }
     await sb('PATCH','staff?name=eq.'+encodeURIComponent(name), {email: email || null});
     if(selectedStaff && selectedStaff.name===name) selectedStaff.email = email;
     toast('Saved email for '+name);
@@ -955,18 +992,30 @@ async function previewAllowanceImport(){
   if(!ws){ status.textContent = 'Could not find a "Summary" sheet with Staff Member/Allowance/Balance columns.'; return; }
   const rows = XLSX.utils.sheet_to_json(ws, {header:1});
 
+  // read columns by their header label rather than trusting a fixed position — protects against
+  // a column being inserted/reordered in the tracker (e.g. someone adding a "Department" column)
+  // silently loading the wrong numbers into allowance/balance
+  const headerIdx = rows.findIndex(r => r.some(c => String(c).trim().toLowerCase()==='staff member'));
+  if(headerIdx < 0){ status.textContent = 'Could not find the "Staff Member" header row in this sheet.'; return; }
+  const header = rows[headerIdx].map(h => String(h).trim().toLowerCase());
+  const nameCol = header.indexOf('staff member');
+  const allowanceCol = header.indexOf('allowance');
+  const balanceCol = header.indexOf('balance');
+  if(allowanceCol < 0 || balanceCol < 0){ status.textContent = 'Could not find "Allowance"/"Balance" column headers in this sheet.'; return; }
+
   const target = {}; // normalized key -> {allowance, balance, sheetName}
-  rows.forEach(r=>{
-    const rawName = r[0];
-    if(!rawName) return;
+  for(let i=headerIdx+1;i<rows.length;i++){
+    const r = rows[i];
+    const rawName = r[nameCol];
+    if(!rawName) continue;
     const name = String(rawName).trim().replace(/\s+/g,' ');
-    if(name.toLowerCase()==='staff member') return;
-    const allowance = Number(r[1]);
-    const balance = Number(r[2]);
-    if(isNaN(allowance) || isNaN(balance)) return; // skip title/blank rows
+    if(name.toLowerCase()==='staff member') continue;
+    const allowance = Number(r[allowanceCol]);
+    const balance = Number(r[balanceCol]);
+    if(isNaN(allowance) || isNaN(balance)) continue; // skip title/blank rows
     const key = ALLOWANCE_NAME_ALIASES[name.toLowerCase()] || name.toLowerCase();
     target[key] = { allowance, balance, sheetName: name };
-  });
+  }
 
   status.textContent = 'Fetching current balances...';
   const staff = await sb('GET','staff?select=name,allowance,balance&order=name.asc');
@@ -1217,6 +1266,19 @@ async function applyShopifyPricing(){
 
 let salePricingChanges = [];
 
+// Handles both "1234.50" (period-decimal) and "1234,50" or "1 234,50" (comma-decimal, the same
+// style this app's own money() displays prices in) so a price copy-pasted straight from this
+// app doesn't get its comma silently stripped into a 100x-inflated number.
+function parseFlexibleMoney(raw){
+  let s = String(raw).trim().replace(/[^0-9.,\s]/g,'').replace(/\s+/g,'');
+  if(s.includes(',') && s.includes('.')){
+    s = s.replace(/,/g,''); // "1,234.50" — comma is a thousands separator
+  } else if(s.includes(',')){
+    s = s.replace(/,/g,'.'); // "1234,50" or "518,00" — comma is the decimal separator
+  }
+  return Number(s);
+}
+
 function previewSalePricing(){
   const text = document.getElementById('salePricingInput').value.trim();
   const status = document.getElementById('salePricingStatus');
@@ -1236,7 +1298,7 @@ function previewSalePricing(){
     if(parts.length < 2) return;
     const style = parts[0];
     if(style.toLowerCase()==='style') return; // header row
-    const rsp = Number(parts[parts.length-1].replace(/[^0-9.]/g,''));
+    const rsp = parseFlexibleMoney(parts[parts.length-1]);
     if(!style || isNaN(rsp)) return;
     parsedByName[style.toLowerCase()] = { style, newRsp: rsp };
   });
@@ -1352,6 +1414,12 @@ async function uploadInvoice(groupKey, scope){
   if(!input.files.length){ toast('Choose a PDF first', true); return; }
   const group = (scope==='discount'?discountGroups:historyGroups).find(g=>g.key===groupKey);
   if(!group) return;
+  // re-fetch every row sharing this order_group_id, not just group.orders as passed in — the
+  // Discount Report only ever loads discount-type rows, so for a split order group.orders would
+  // otherwise only be the pay-in half, leaving the allowance-portion row's invoice fields unset
+  // even though the whole cart was invoiced (same fix already applied to deleteCartGroup)
+  const groupId = group.orders[0] && group.orders[0].order_group_id;
+  const allOrders = groupId ? await sb('GET','orders?select=id&order_group_id=eq.'+encodeURIComponent(groupId)) : group.orders;
   const file = input.files[0];
   const path = groupKey+'-'+Date.now()+'-'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
   try{
@@ -1362,9 +1430,9 @@ async function uploadInvoice(groupKey, scope){
     });
     if(!r.ok) throw new Error(await r.text());
     const publicUrl = CONFIG.SB_URL+'/storage/v1/object/public/invoices/'+path;
-    const ids = group.orders.map(o=>o.id).join(',');
+    const ids = allOrders.map(o=>o.id).join(',');
     await sb('PATCH','orders?id=in.('+ids+')', {invoice_url: publicUrl, invoiced: true});
-    toast('Invoice uploaded — covers all '+group.orders.length+' item(s) in this order');
+    toast('Invoice uploaded — covers all '+allOrders.length+' item(s) in this order');
     loadDiscountReport();
     loadOrderHistory();
   }catch(e){
