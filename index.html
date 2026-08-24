@@ -799,15 +799,46 @@ async function loadStaffTable(){
   const rows = await sb('GET','staff?select=*&order=name.asc');
   const tbody = document.querySelector('#staffTable tbody');
   tbody.innerHTML = rows.map(s=>{
-    const balText = s.balance < 0
-      ? '<span style="color:var(--bad)">R'+money(Math.abs(s.balance))+' outstanding</span>'
-      : 'R'+money(s.balance);
+    const safeName = s.name.replace(/'/g,"\\'");
     const emailInput = '<input type="text" value="'+escapeHtml(s.email||'')+'" placeholder="name@freedomofmovement.co.za" '+
       'style="width:100%;padding:6px 8px;font-size:12px;border:1px solid #ccc;border-radius:3px" '+
-      'onblur="saveStaffEmail(\''+s.name.replace(/'/g,"\\'")+'\', this.value)">';
-    return '<tr><td>'+escapeHtml(s.name)+'</td><td>'+emailInput+'</td><td>'+escapeHtml(s.period)+'</td><td>R'+money(s.allowance)+'</td><td>'+balText+'</td>'+
-      '<td><button class="secondary" onclick="sendBalanceCopy(\''+s.name.replace(/'/g,"\\'")+'\')">Send Balance</button></td></tr>';
+      'onblur="saveStaffEmail(\''+safeName+'\', this.value)">';
+    const allowanceInput = '<input type="number" step="0.01" value="'+s.allowance+'" '+
+      'style="width:90px;padding:6px 8px;font-size:12px;border:1px solid #ccc;border-radius:3px" '+
+      'onblur="saveStaffAllowance(\''+safeName+'\', this.value)">';
+    const balanceInput = '<input type="number" step="0.01" value="'+s.balance+'" '+
+      'style="width:90px;padding:6px 8px;font-size:12px;border:1px solid #ccc;border-radius:3px'+(s.balance<0?';color:var(--bad)':'')+'" '+
+      'onblur="saveStaffBalance(\''+safeName+'\', this.value)">';
+    return '<tr><td>'+escapeHtml(s.name)+'</td><td>'+emailInput+'</td><td>'+escapeHtml(s.period)+'</td><td>'+allowanceInput+'</td><td>'+balanceInput+'</td>'+
+      '<td><button class="secondary" onclick="sendBalanceCopy(\''+safeName+'\')">Send Balance</button></td></tr>';
   }).join('');
+}
+
+async function saveStaffAllowance(name, value){
+  const allowance = Number(value);
+  if(isNaN(allowance)){ toast('Enter a valid number', true); return; }
+  try{
+    await sb('PATCH','staff?name=eq.'+encodeURIComponent(name), {allowance});
+    toast('Allowance updated for '+name);
+  }catch(e){
+    console.error(e);
+    toast('Could not update allowance', true);
+    loadStaffTable();
+  }
+}
+
+async function saveStaffBalance(name, value){
+  const balance = Number(value);
+  if(isNaN(balance)){ toast('Enter a valid number', true); return; }
+  if(!confirm('Set '+name+'\'s balance to R'+money(balance)+'? This directly overrides their current balance.')) return;
+  try{
+    await sb('PATCH','staff?name=eq.'+encodeURIComponent(name), {balance});
+    toast('Balance updated for '+name);
+  }catch(e){
+    console.error(e);
+    toast('Could not update balance', true);
+    loadStaffTable();
+  }
 }
 
 async function addStaff(){
