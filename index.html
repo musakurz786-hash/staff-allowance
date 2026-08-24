@@ -805,7 +805,7 @@ async function loadStaffTable(){
       'onblur="saveStaffEmail(\''+safeName+'\', this.value)">';
     const allowanceInput = '<input type="number" step="0.01" value="'+s.allowance+'" '+
       'style="width:90px;padding:6px 8px;font-size:12px;border:1px solid #ccc;border-radius:3px" '+
-      'onblur="saveStaffAllowance(\''+safeName+'\', this.value)">';
+      'onblur="saveStaffAllowance(\''+safeName+'\', this.value, '+s.allowance+')">';
     const balanceInput = '<input type="number" step="0.01" value="'+s.balance+'" '+
       'style="width:90px;padding:6px 8px;font-size:12px;border:1px solid #ccc;border-radius:3px'+(s.balance<0?';color:var(--bad)':'')+'" '+
       'onblur="saveStaffBalance(\''+safeName+'\', this.value)">';
@@ -814,12 +814,24 @@ async function loadStaffTable(){
   }).join('');
 }
 
-async function saveStaffAllowance(name, value){
+async function saveStaffAllowance(name, value, oldAllowance){
   const allowance = Number(value);
   if(isNaN(allowance)){ toast('Enter a valid number', true); return; }
+  const delta = allowance - Number(oldAllowance);
   try{
-    await sb('PATCH','staff?name=eq.'+encodeURIComponent(name), {allowance});
-    toast('Allowance updated for '+name);
+    if(delta !== 0){
+      // moving the allowance up or down shifts the leftover balance by the same amount, so a
+      // raise actually gives them more to spend instead of being silently absorbed, and a
+      // correction doesn't need a second manual balance edit to match
+      const rows = await sb('GET','staff?select=balance&name=eq.'+encodeURIComponent(name));
+      const newBalance = (rows[0] ? Number(rows[0].balance) : 0) + delta;
+      await sb('PATCH','staff?name=eq.'+encodeURIComponent(name), {allowance, balance: newBalance});
+      toast('Allowance updated for '+name+' (balance '+(delta>0?'+':'-')+'R'+money(Math.abs(delta))+')');
+    } else {
+      await sb('PATCH','staff?name=eq.'+encodeURIComponent(name), {allowance});
+      toast('Allowance updated for '+name);
+    }
+    loadStaffTable();
   }catch(e){
     console.error(e);
     toast('Could not update allowance', true);
