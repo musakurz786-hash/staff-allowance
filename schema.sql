@@ -134,3 +134,52 @@ create policy "admin deletes orders" on orders for delete
 create policy "admin uploads invoices" on storage.objects for insert
   with check (bucket_id = 'invoices' and auth.jwt()->>'email' = 'musa@freedomofmovement.co.za');
 create policy "anon read invoices" on storage.objects for select using (bucket_id = 'invoices');
+
+-- ============================================================================
+-- staff_audit + order amount validation — see improvements-migration.sql for the full comments.
+-- Kept here too so a fresh setup gets these from the start.
+-- ============================================================================
+create table staff_audit (
+  id bigint generated always as identity primary key,
+  created_at timestamptz default now(),
+  staff_name text not null,
+  field text not null check (field in ('allowance','balance','period')),
+  old_value text,
+  new_value text,
+  changed_by text not null,
+  source text not null
+);
+alter table staff_audit enable row level security;
+create policy "admin only" on staff_audit for all
+  using (auth.jwt()->>'email' = 'musa@freedomofmovement.co.za')
+  with check (auth.jwt()->>'email' = 'musa@freedomofmovement.co.za');
+
+create or replace function validate_order_amount() returns trigger as $$
+declare
+  v_rsp numeric;
+  v_expected numeric;
+begin
+  if auth.jwt()->>'email' = 'musa@freedomofmovement.co.za' then
+    return new;
+  end if;
+  select rsp into v_rsp from products where sku = new.sku;
+  if v_rsp is null then
+    raise exception 'Unknown SKU %', new.sku;
+  end if;
+  if new.rsp is distinct from v_rsp then
+    raise exception 'RSP mismatch for % — submitted % but catalog says %', new.sku, new.rsp, v_rsp;
+  end if;
+  if new.order_type = 'discount' and not new.is_topup then
+    v_expected := round(v_rsp * new.qty * (1 - 0.40), 2); -- keep in sync with CONFIG.DISCOUNT_RATE
+  else
+    v_expected := v_rsp * new.qty;
+  end if;
+  if abs(new.amount - v_expected) > 0.01 then
+    raise exception 'Amount mismatch for % — submitted % but expected %', new.sku, new.amount, v_expected;
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger validate_order_amount_trigger before insert on orders
+  for each row execute function validate_order_amount();

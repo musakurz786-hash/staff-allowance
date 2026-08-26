@@ -71,6 +71,7 @@
   </div>
   <nav>
     <button id="navOrder" class="active" onclick="showView('order')" style="display:none">Order</button>
+    <button id="navMyOrders" onclick="showView('myorders')" style="display:none">My Orders</button>
     <button id="navAdmin" onclick="showView('admin')" style="display:none">Admin</button>
     <button id="navChangePin" onclick="showView('changepin')" style="display:none">Change PIN</button>
     <span id="userBadge" style="display:none;font-size:11px;color:var(--ink);align-self:center;margin:0 4px;"></span>
@@ -203,7 +204,18 @@
           <div class="field"><label>Allowance (0 for discount-only staff)</label><input type="number" id="newStaffAllowance" value="0"></div>
           <button class="secondary" onclick="addStaff()">Add</button>
         </div>
+        <div class="field"><label>Search Staff</label><input type="text" id="staffSearch" placeholder="Filter by name or email..." oninput="renderStaffTable()"></div>
         <table class="admin" id="staffTable"><thead><tr><th>Name</th><th>Email</th><th>Period</th><th>Allowance</th><th>Balance</th><th></th></tr></thead><tbody></tbody></table>
+      </div>
+
+      <div class="admin-section">
+        <h2>Change History</h2>
+        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Every manual allowance/balance edit, bulk import, or period reset — who changed it, when, and what it was before. Order-driven balance changes aren't logged here since they already show up in Order History.</p>
+        <button class="secondary" onclick="loadAuditLog()">Refresh</button>
+        <table class="admin" id="auditTable" style="margin-top:14px">
+          <thead><tr><th>Date</th><th>Staff</th><th>Field</th><th>Before</th><th>After</th><th>Source</th><th>By</th></tr></thead>
+          <tbody></tbody>
+        </table>
       </div>
 
       <div class="admin-section">
@@ -229,6 +241,15 @@
       </div>
 
     </div>
+  </div>
+
+  <!-- MY ORDERS VIEW -->
+  <div id="view-myorders" class="view">
+    <h2>My Orders</h2>
+    <table class="admin" id="myOrdersTable">
+      <thead><tr><th>Date</th><th>Product</th><th>Qty</th><th>Type</th><th>Amount</th></tr></thead>
+      <tbody></tbody>
+    </table>
   </div>
 
   <!-- CHANGE PIN VIEW -->
@@ -369,6 +390,7 @@ async function handleAuthChange(){
     document.getElementById('userBadge').style.display = 'none';
     document.getElementById('navLogout').style.display = 'none';
     document.getElementById('navOrder').style.display = 'none';
+    document.getElementById('navMyOrders').style.display = 'none';
     document.getElementById('navAdmin').style.display = 'none';
     document.getElementById('navChangePin').style.display = 'none';
     showView('login');
@@ -379,6 +401,7 @@ async function handleAuthChange(){
   document.getElementById('userBadge').textContent = currentEmail;
   document.getElementById('navLogout').style.display = 'inline-block';
   document.getElementById('navOrder').style.display = 'inline-block';
+  document.getElementById('navMyOrders').style.display = 'inline-block';
   document.getElementById('navChangePin').style.display = 'inline-block';
   document.getElementById('navAdmin').style.display = (currentEmail === CONFIG.ADMIN_EMAIL) ? 'inline-block' : 'none';
   showView('order');
@@ -415,11 +438,37 @@ function money(n){ return Number(n||0).toLocaleString('en-ZA', {minimumFractionD
 function showView(name){
   document.getElementById('view-login').classList.toggle('active', name==='login');
   document.getElementById('view-order').classList.toggle('active', name==='order');
+  document.getElementById('view-myorders').classList.toggle('active', name==='myorders');
   document.getElementById('view-admin').classList.toggle('active', name==='admin');
   document.getElementById('view-changepin').classList.toggle('active', name==='changepin');
   document.getElementById('navOrder').classList.toggle('active', name==='order');
+  document.getElementById('navMyOrders').classList.toggle('active', name==='myorders');
   document.getElementById('navAdmin').classList.toggle('active', name==='admin');
   if(name==='admin') showAdminBody();
+  if(name==='myorders') loadMyOrders();
+}
+
+async function loadMyOrders(){
+  const tbody = document.querySelector('#myOrdersTable tbody');
+  if(!selectedStaff){ tbody.innerHTML = '<tr><td colspan="5" class="empty">Your account isn\'t linked to a staff record yet</td></tr>'; return; }
+  try{
+    const rows = await sb('GET','orders?select=*&staff_name=eq.'+encodeURIComponent(selectedStaff.name)+'&order=created_at.desc&limit=200');
+    if(!rows.length){ tbody.innerHTML = '<tr><td colspan="5" class="empty">No orders yet</td></tr>'; return; }
+    const groups = groupByCart(rows);
+    tbody.innerHTML = groups.map(g=>{
+      const totalQty = g.orders.reduce((s,o)=>s+o.qty,0);
+      const totalAmount = g.orders.reduce((s,o)=>s+Number(o.amount),0);
+      const types = new Set(g.orders.map(o=>o.order_type));
+      const typeLabel = types.size > 1 ? 'Split (Allowance + Pay-in)' : (g.orders[0].order_type==='allowance'?'Allowance':'Discount');
+      const productLabel = g.orders.length===1 ? escapeHtml(g.orders[0].product)
+        : g.orders.length+' items: '+g.orders.map(o=>escapeHtml(o.product)).join(', ');
+      return '<tr><td>'+new Date(g.created_at).toLocaleDateString('en-ZA')+'</td><td>'+productLabel+'</td>'+
+        '<td>'+totalQty+'</td><td>'+typeLabel+'</td><td>R'+money(totalAmount)+'</td></tr>';
+    }).join('');
+  }catch(e){
+    console.error(e);
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">Could not load your orders</td></tr>';
+  }
 }
 
 // Re-confirms the current PIN (a fresh signInWithPassword) before allowing the change, so a
@@ -791,13 +840,23 @@ async function submitCart(){
 // so there's nothing left for a client-side lock to usefully protect.
 function showAdminBody(){
   loadStaffTable();
+  loadAuditLog();
   loadDiscountReport();
   loadOrderHistory();
 }
 
+let staffTableRows = [];
+
 async function loadStaffTable(){
-  const rows = await sb('GET','staff?select=*&order=name.asc');
+  staffTableRows = await sb('GET','staff?select=*&order=name.asc');
+  renderStaffTable();
+}
+
+function renderStaffTable(){
+  const q = (document.getElementById('staffSearch').value||'').trim().toLowerCase();
+  const rows = q ? staffTableRows.filter(s => s.name.toLowerCase().includes(q) || (s.email||'').toLowerCase().includes(q)) : staffTableRows;
   const tbody = document.querySelector('#staffTable tbody');
+  if(!rows.length){ tbody.innerHTML = '<tr><td colspan="6" class="empty">No staff match "'+escapeHtml(q)+'"</td></tr>'; return; }
   tbody.innerHTML = rows.map(s=>{
     const safeName = s.name.replace(/'/g,"\\'");
     const emailInput = '<input type="text" value="'+escapeHtml(s.email||'')+'" placeholder="name@freedomofmovement.co.za" '+
@@ -814,6 +873,34 @@ async function loadStaffTable(){
   }).join('');
 }
 
+async function loadAuditLog(){
+  const tbody = document.querySelector('#auditTable tbody');
+  try{
+    const rows = await sb('GET','staff_audit?select=*&order=created_at.desc&limit=200');
+    if(!rows.length){ tbody.innerHTML = '<tr><td colspan="7" class="empty">No changes logged yet</td></tr>'; return; }
+    tbody.innerHTML = rows.map(a=>{
+      const fmt = v => v===null || v==='null' ? '—' : (a.field==='period' ? escapeHtml(v) : 'R'+money(Number(v)));
+      return '<tr><td>'+new Date(a.created_at).toLocaleString('en-ZA')+'</td><td>'+escapeHtml(a.staff_name)+'</td>'+
+        '<td>'+escapeHtml(a.field)+'</td><td>'+fmt(a.old_value)+'</td><td>'+fmt(a.new_value)+'</td>'+
+        '<td>'+escapeHtml(a.source)+'</td><td>'+escapeHtml(a.changed_by)+'</td></tr>';
+    }).join('');
+  }catch(e){
+    console.error(e);
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">Could not load change history</td></tr>';
+  }
+}
+
+// Records a manual/bulk balance/allowance change for accountability — order-driven changes
+// already have their own trail via the orders table, so this only covers admin-directed edits.
+async function logAudit(staffName, field, oldValue, newValue, source){
+  try{
+    await sb('POST','staff_audit', {
+      staff_name: staffName, field, old_value: String(oldValue), new_value: String(newValue),
+      changed_by: currentEmail, source
+    }, {'Prefer':'return=minimal'});
+  }catch(e){ console.error('audit log failed', e); } // never block the real action over this
+}
+
 async function saveStaffAllowance(name, value, oldAllowance){
   const allowance = Number(value);
   if(isNaN(allowance)){ toast('Enter a valid number', true); return; }
@@ -824,8 +911,11 @@ async function saveStaffAllowance(name, value, oldAllowance){
       // raise actually gives them more to spend instead of being silently absorbed, and a
       // correction doesn't need a second manual balance edit to match
       const rows = await sb('GET','staff?select=balance&name=eq.'+encodeURIComponent(name));
-      const newBalance = (rows[0] ? Number(rows[0].balance) : 0) + delta;
+      const oldBalance = rows[0] ? Number(rows[0].balance) : 0;
+      const newBalance = oldBalance + delta;
       await sb('PATCH','staff?name=eq.'+encodeURIComponent(name), {allowance, balance: newBalance});
+      await logAudit(name, 'allowance', oldAllowance, allowance, 'manual_edit');
+      await logAudit(name, 'balance', oldBalance, newBalance, 'manual_edit');
       toast('Allowance updated for '+name+' (balance '+(delta>0?'+':'-')+'R'+money(Math.abs(delta))+')');
     } else {
       await sb('PATCH','staff?name=eq.'+encodeURIComponent(name), {allowance});
@@ -844,7 +934,10 @@ async function saveStaffBalance(name, value){
   if(isNaN(balance)){ toast('Enter a valid number', true); return; }
   if(!confirm('Set '+name+'\'s balance to R'+money(balance)+'? This directly overrides their current balance.')) return;
   try{
+    const rows = await sb('GET','staff?select=balance&name=eq.'+encodeURIComponent(name));
+    const oldBalance = rows[0] ? Number(rows[0].balance) : null;
     await sb('PATCH','staff?name=eq.'+encodeURIComponent(name), {balance});
+    await logAudit(name, 'balance', oldBalance, balance, 'manual_edit');
     toast('Balance updated for '+name);
   }catch(e){
     console.error(e);
@@ -927,9 +1020,11 @@ async function startNewPeriod(){
   const period = document.getElementById('newPeriod').value.trim();
   if(!period){ toast('Enter a period label first', true); return; }
   if(!confirm('Reset every staff member\'s balance back to their full allowance for period "'+period+'"? This cannot be undone.')) return;
-  const rows = await sb('GET','staff?select=name,allowance');
+  const rows = await sb('GET','staff?select=name,allowance,balance,period');
   for(const s of rows){
     await sb('PATCH','staff?name=eq.'+encodeURIComponent(s.name), {balance: s.allowance, period});
+    await logAudit(s.name, 'balance', s.balance, s.allowance, 'period_reset');
+    if(s.period !== period) await logAudit(s.name, 'period', s.period, period, 'period_reset');
   }
   toast('Balances reset for period '+period);
   loadStaffTable();
@@ -1109,6 +1204,8 @@ async function applyAllowanceImport(){
   try{
     for(const c of allowanceImportRows){
       await sb('PATCH','staff?name=eq.'+encodeURIComponent(c.name), {allowance: c.newAllowance, balance: c.newBalance});
+      if(c.currentAllowance !== c.newAllowance) await logAudit(c.name, 'allowance', c.currentAllowance, c.newAllowance, 'allowance_import');
+      if(c.currentBalance !== c.newBalance) await logAudit(c.name, 'balance', c.currentBalance, c.newBalance, 'allowance_import');
       status.textContent = 'Updated '+c.name+'...';
     }
     status.textContent = 'Done — '+allowanceImportRows.length+' staff updated.';
