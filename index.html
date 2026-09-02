@@ -696,6 +696,16 @@ async function submitCart(){
   const totalQty = cart.reduce((s,c)=>s+c.qty, 0);
   const groupId = selectedStaff.name.replace(/\s+/g,'')+'-'+Date.now();
 
+  // Fetch the live balance once, up front, rather than trusting whatever was cached at page load
+  // — everything below (the split decision, the confirm dialog, the rows written, and the final
+  // deduction) is derived from this same fresh number, so what the person is told and what
+  // actually happens can't diverge from each other.
+  let balanceBefore = selectedStaff.balance;
+  if(orderType === 'allowance'){
+    const freshRows = await sb('GET','staff?select=balance&name=eq.'+encodeURIComponent(selectedStaff.name));
+    if(freshRows[0]) balanceBefore = Number(freshRows[0].balance);
+  }
+
   // Split payment: if an allowance order costs more than what's left, use up the remaining
   // balance and let the shortfall go through as a full-price pay-in — invoiced the same way a
   // Staff Discount purchase is, since it's real money changing hands rather than allowance spend.
@@ -707,11 +717,11 @@ async function submitCart(){
   let allowanceAmountTotal = amount;
   let topupAmountTotal = 0;
 
-  if(orderType === 'allowance' && amount > selectedStaff.balance){
-    if(selectedStaff.balance <= 0){
+  if(orderType === 'allowance' && amount > balanceBefore){
+    if(balanceBefore <= 0){
       toast('No allowance balance left for this order', true); return;
     }
-    let remaining = selectedStaff.balance;
+    let remaining = balanceBefore;
     let coveredTotal = 0, topupTotal = 0;
     const splitRows = [];
     cart.forEach(c => {
@@ -754,7 +764,6 @@ async function submitCart(){
   const btn = document.getElementById('submitBtn');
   btn.disabled = true; btn.textContent = 'Placing order...';
 
-  let balanceBefore = selectedStaff.balance;
   let balanceAfter = orderType === 'allowance' ? (balanceBefore - allowanceAmountTotal) : balanceBefore;
 
   try{
@@ -763,15 +772,10 @@ async function submitCart(){
     await sb('POST','orders', rows, {'Prefer':'return=minimal'});
 
     if(orderType === 'allowance'){
-      // re-fetch the live balance right before writing rather than trusting whatever was cached
-      // at page load — narrows the window for a concurrent admin edit (e.g. an Allowance Tracker
-      // import) to get silently overwritten by a stale PATCH. Both before/after are taken from
-      // this same fresh read so the numbers shown to the person stay internally consistent even
-      // if their balance changed since the page loaded.
-      const freshRows = await sb('GET','staff?select=balance&name=eq.'+encodeURIComponent(selectedStaff.name));
-      balanceBefore = freshRows[0] ? Number(freshRows[0].balance) : balanceBefore;
-      balanceAfter = balanceBefore - allowanceAmountTotal;
-      await sb('PATCH','staff?name=eq.'+encodeURIComponent(selectedStaff.name), {balance: balanceAfter});
+      // adjust_staff_balance() applies the delta atomically inside one UPDATE — even if the
+      // balance moved again between the fresh read above and now, this can never lose or double
+      // an adjustment the way a plain GET-then-PATCH-absolute-value would
+      balanceAfter = await sb('POST','rpc/adjust_staff_balance', { p_name: selectedStaff.name, p_delta: -allowanceAmountTotal });
       selectedStaff.balance = balanceAfter;
     }
 
@@ -829,7 +833,14 @@ async function submitCart(){
         : 'Order confirmed — Musa\'s been notified. Your email goes out once the invoice is attached. Dankie! Thank you! Danke! Shukran!');
   }catch(e){
     console.error(e);
-    toast('Something went wrong placing the order', true);
+    // a price/amount mismatch means an item's price changed after it was added to the cart (the
+    // catalog only refreshes on login) — the database rejected it rather than silently charging
+    // the wrong amount, so tell the person to refresh rather than showing a generic error they
+    // can't act on
+    const stale = /RSP mismatch|Amount mismatch/i.test(e.message||'');
+    toast(stale
+      ? 'A price changed since you loaded this page — please refresh and try again'
+      : 'Something went wrong placing the order', true);
     btn.disabled = false; btn.textContent = 'Confirm Order';
   }
 }
@@ -906,19 +917,17 @@ async function saveStaffAllowance(name, value, oldAllowance){
   if(isNaN(allowance)){ toast('Enter a valid number', true); return; }
   const delta = allowance - Number(oldAllowance);
   try{
+    await sb('PATCH','staff?name=eq.'+encodeURIComponent(name), {allowance});
+    await logAudit(name, 'allowance', oldAllowance, allowance, 'manual_edit');
     if(delta !== 0){
-      // moving the allowance up or down shifts the leftover balance by the same amount, so a
-      // raise actually gives them more to spend instead of being silently absorbed, and a
-      // correction doesn't need a second manual balance edit to match
-      const rows = await sb('GET','staff?select=balance&name=eq.'+encodeURIComponent(name));
-      const oldBalance = rows[0] ? Number(rows[0].balance) : 0;
-      const newBalance = oldBalance + delta;
-      await sb('PATCH','staff?name=eq.'+encodeURIComponent(name), {allowance, balance: newBalance});
-      await logAudit(name, 'allowance', oldAllowance, allowance, 'manual_edit');
-      await logAudit(name, 'balance', oldBalance, newBalance, 'manual_edit');
+      // moving the allowance up or down shifts the leftover balance by the same amount, applied
+      // atomically (via adjust_staff_balance) so it can't race with a concurrent order or edit
+      // touching the same balance — a raise actually gives them more to spend instead of being
+      // silently absorbed or lost to a race, and a correction doesn't need a second manual edit
+      const newBalance = await sb('POST','rpc/adjust_staff_balance', { p_name: name, p_delta: delta });
+      await logAudit(name, 'balance', newBalance - delta, newBalance, 'manual_edit');
       toast('Allowance updated for '+name+' (balance '+(delta>0?'+':'-')+'R'+money(Math.abs(delta))+')');
     } else {
-      await sb('PATCH','staff?name=eq.'+encodeURIComponent(name), {allowance});
       toast('Allowance updated for '+name);
     }
     loadStaffTable();
@@ -939,6 +948,7 @@ async function saveStaffBalance(name, value){
     await sb('PATCH','staff?name=eq.'+encodeURIComponent(name), {balance});
     await logAudit(name, 'balance', oldBalance, balance, 'manual_edit');
     toast('Balance updated for '+name);
+    loadStaffTable();
   }catch(e){
     console.error(e);
     toast('Could not update balance', true);
@@ -1201,12 +1211,19 @@ async function applyAllowanceImport(){
   if(!allowanceImportRows.length) return;
   if(!confirm('Apply '+allowanceImportRows.length+' balance/allowance update(s)? This directly changes live balances.')) return;
   const status = document.getElementById('allowanceImportStatus');
+  const cents = v => Math.round(Number(v)*100); // matches the rounded diff already used to build this list
   try{
-    for(const c of allowanceImportRows){
-      await sb('PATCH','staff?name=eq.'+encodeURIComponent(c.name), {allowance: c.newAllowance, balance: c.newBalance});
-      if(c.currentAllowance !== c.newAllowance) await logAudit(c.name, 'allowance', c.currentAllowance, c.newAllowance, 'allowance_import');
-      if(c.currentBalance !== c.newBalance) await logAudit(c.name, 'balance', c.currentBalance, c.newBalance, 'allowance_import');
-      status.textContent = 'Updated '+c.name+'...';
+    const batchSize = 8; // bounded concurrency — independent per staff member, no need to fully serialize
+    let done = 0;
+    for(let i=0;i<allowanceImportRows.length;i+=batchSize){
+      const batch = allowanceImportRows.slice(i,i+batchSize);
+      await Promise.all(batch.map(async c=>{
+        await sb('PATCH','staff?name=eq.'+encodeURIComponent(c.name), {allowance: c.newAllowance, balance: c.newBalance});
+        if(cents(c.currentAllowance) !== cents(c.newAllowance)) await logAudit(c.name, 'allowance', c.currentAllowance, c.newAllowance, 'allowance_import');
+        if(cents(c.currentBalance) !== cents(c.newBalance)) await logAudit(c.name, 'balance', c.currentBalance, c.newBalance, 'allowance_import');
+      }));
+      done += batch.length;
+      status.textContent = 'Updated '+done+' / '+allowanceImportRows.length+'...';
     }
     status.textContent = 'Done — '+allowanceImportRows.length+' staff updated.';
     toast('Balances updated');
@@ -1409,12 +1426,18 @@ let salePricingChanges = [];
 // Handles both "1234.50" (period-decimal) and "1234,50" or "1 234,50" (comma-decimal, the same
 // style this app's own money() displays prices in) so a price copy-pasted straight from this
 // app doesn't get its comma silently stripped into a 100x-inflated number.
+// Handles both "1,234.50" (comma-thousands, dot-decimal) and "1.234,56" or "518,00"
+// (dot-thousands or none, comma-decimal — this app's own money() format). Whichever of , or .
+// appears LAST in the string is the real decimal separator; any earlier occurrences of the other
+// character are thousands separators and get stripped, not just blindly assumed one way.
 function parseFlexibleMoney(raw){
   let s = String(raw).trim().replace(/[^0-9.,\s]/g,'').replace(/\s+/g,'');
-  if(s.includes(',') && s.includes('.')){
-    s = s.replace(/,/g,''); // "1,234.50" — comma is a thousands separator
-  } else if(s.includes(',')){
-    s = s.replace(/,/g,'.'); // "1234,50" or "518,00" — comma is the decimal separator
+  const lastComma = s.lastIndexOf(',');
+  const lastDot = s.lastIndexOf('.');
+  if(lastComma > lastDot){
+    s = s.replace(/\./g,'').replace(',', '.');
+  } else if(lastDot > lastComma){
+    s = s.replace(/,/g,'');
   }
   return Number(s);
 }
@@ -1683,11 +1706,11 @@ async function deleteCartGroup(groupKey){
   if(!confirm(confirmMsg)) return;
   try{
     if(willRefund){
-      const rows = await sb('GET','staff?select=*&name=eq.'+encodeURIComponent(first.staff_name));
-      if(rows[0]){
-        const newBalance = Number(rows[0].balance) + refundTotal;
-        await sb('PATCH','staff?name=eq.'+encodeURIComponent(first.staff_name), {balance: newBalance});
-      }
+      // adjust_staff_balance() applies this atomically; also logged since the orders rows this
+      // refund is deducted from are about to be deleted in the next step, and once gone they can
+      // no longer stand in as the "why did this balance change" record on their own
+      const newBalance = await sb('POST','rpc/adjust_staff_balance', { p_name: first.staff_name, p_delta: refundTotal });
+      await logAudit(first.staff_name, 'balance', newBalance - refundTotal, newBalance, 'order_cancelled');
     }
     const ids = orders.map(o=>o.id).join(',');
     await sb('DELETE','orders?id=in.('+ids+')', null, {'Prefer':'return=minimal'});

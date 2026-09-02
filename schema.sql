@@ -90,12 +90,42 @@ begin
      or old.period is distinct from new.period then
     raise exception 'Not permitted to modify this field';
   end if;
+  -- a non-admin may only ever decrease their own balance (spending it) — closes a direct-API
+  -- loophole where nothing else stopped them PATCHing their own balance up, and with no trace
+  if new.balance > old.balance then
+    raise exception 'Not permitted to increase your own balance';
+  end if;
   return new;
 end;
 $$ language plpgsql security definer;
 
 create trigger staff_guard_update_trigger before update on staff
   for each row execute function staff_guard_update();
+
+-- Atomic balance adjustment — every balance change (order checkout, admin edit, refund) should go
+-- through this rather than a client-side GET-then-PATCH-absolute-value, which races: two
+-- concurrent writes can silently clobber each other. The increment happens inside one UPDATE
+-- statement, which Postgres serializes safely regardless of how stale the caller's own view of
+-- "current balance" was. A caller may only adjust their own row, unless they're admin.
+create or replace function adjust_staff_balance(p_name text, p_delta numeric) returns numeric as $$
+declare
+  v_email text;
+  v_new numeric;
+begin
+  select email into v_email from staff where name = p_name;
+  if not found then
+    raise exception 'Staff not found: %', p_name;
+  end if;
+  if auth.jwt()->>'email' <> 'musa@freedomofmovement.co.za'
+     and (v_email is null or auth.jwt()->>'email' is distinct from v_email) then
+    raise exception 'Not permitted to adjust this balance';
+  end if;
+  update staff set balance = balance + p_delta where name = p_name returning balance into v_new;
+  return v_new;
+end;
+$$ language plpgsql security definer;
+
+grant execute on function adjust_staff_balance(text, numeric) to authenticated;
 
 -- products: the full catalog is visible to any logged-in staff member (needed to browse/order);
 -- only admin can add/edit/import.
@@ -159,7 +189,10 @@ declare
   v_rsp numeric;
   v_expected numeric;
 begin
-  if auth.jwt()->>'email' = 'musa@freedomofmovement.co.za' then
+  -- a null auth.jwt() means this insert didn't come through PostgREST at all (e.g. a direct SQL
+  -- Editor session doing a historical backfill) — exempt those the same as the admin, since a
+  -- genuine anonymous/staff request through the app's public API always has some JWT set
+  if auth.jwt() is null or auth.jwt()->>'email' = 'musa@freedomofmovement.co.za' then
     return new;
   end if;
   select rsp into v_rsp from products where sku = new.sku;
