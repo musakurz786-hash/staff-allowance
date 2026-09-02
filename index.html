@@ -120,6 +120,11 @@
 
   <!-- ORDER VIEW -->
   <div id="view-order" class="view">
+    <div id="adminProxyBanner" style="display:none;background:var(--brand-green);padding:12px 16px;border-radius:4px;margin-bottom:18px;justify-content:space-between;align-items:center;gap:10px">
+      <span style="font-size:13px">Placing an order for <strong id="adminProxyName"></strong> — they'll get the confirmation email, not you.</span>
+      <button class="secondary" onclick="exitAdminOrder()">Exit</button>
+    </div>
+
     <div id="staffNotLinked" class="lock" style="display:none">
       <p style="font-size:14px">Your account (<strong id="notLinkedEmail"></strong>) isn't linked to a staff record yet.</p>
       <p style="font-size:12px;color:var(--grey)">Contact Musa to get set up, then log out and back in.</p>
@@ -505,6 +510,35 @@ let PRODUCTS = [];
 let selectedStaff = null;
 let cart = []; // [{sku, product, rsp, qty}] — one cart, one order type at a time
 let orderType = 'allowance';
+let adminProxyMode = false; // true while admin is placing an order on someone else's behalf
+let adminOwnStaff = null; // admin's own staff record, saved while proxying so Exit can restore it
+
+// Lets admin process an in-store (or any other) purchase on a staff member's behalf — same order
+// screen, same split-payment logic, same confirmation email, just triggered by admin instead of
+// the person themselves. RLS already permits admin to insert orders/adjust balance for anyone;
+// this is purely the UI for it.
+function startAdminOrder(name){
+  const s = staffTableRows.find(x=>x.name===name);
+  if(!s){ toast('Could not find that staff member', true); return; }
+  if(!adminProxyMode) adminOwnStaff = selectedStaff; // remember admin's own record on first entry
+  selectedStaff = s;
+  adminProxyMode = true;
+  cart = [];
+  document.getElementById('adminProxyBanner').style.display = 'flex';
+  document.getElementById('adminProxyName').textContent = s.name;
+  document.getElementById('productSearch').disabled = false;
+  showView('order');
+  renderBalanceCard();
+}
+
+function exitAdminOrder(){
+  adminProxyMode = false;
+  selectedStaff = adminOwnStaff;
+  cart = [];
+  document.getElementById('adminProxyBanner').style.display = 'none';
+  if(selectedStaff) renderBalanceCard();
+  showView('admin');
+}
 
 // Staff no longer pick their name from a list — they're identified by whoever they logged in as.
 // This looks up (and RLS only allows seeing) the one staff row matching the logged-in email.
@@ -740,9 +774,10 @@ async function submitCart(){
           order_type: 'discount', rsp: c.rsp, amount: amt, period: selectedStaff.period, order_group_id: groupId, is_topup: true });
       }
     });
+    const whose = adminProxyMode ? selectedStaff.name+'\'s' : 'Your';
     const proceed = confirm(
-      'Your allowance only covers R'+money(coveredTotal)+' of this R'+money(amount)+' order (in whole units).\n\n'+
-      'R'+money(coveredTotal)+' will be deducted from your allowance, and you\'ll pay in the remaining '+
+      whose+' allowance only covers R'+money(coveredTotal)+' of this R'+money(amount)+' order (in whole units).\n\n'+
+      'R'+money(coveredTotal)+' will be deducted from '+(adminProxyMode?'their':'your')+' allowance, and '+(adminProxyMode?'they\'ll':'you\'ll')+' pay in the remaining '+
       'R'+money(topupTotal)+' at full price — invoiced separately, the same as a Staff Discount purchase.\n\nProceed?'
     );
     if(!proceed) return;
@@ -826,11 +861,12 @@ async function submitCart(){
     renderBalanceCard(); // refreshes balance card and clears the cart
     document.getElementById('productSearch').value = '';
     document.getElementById('results').style.display = 'none';
+    const forWhom = adminProxyMode ? ' for '+selectedStaff.name : '';
     toast(isSplit
-      ? 'Order confirmed — R'+money(allowanceAmountTotal)+' from your allowance, R'+money(topupAmountTotal)+' pay-in invoiced separately.'
+      ? 'Order confirmed'+forWhom+' — R'+money(allowanceAmountTotal)+' from allowance, R'+money(topupAmountTotal)+' pay-in invoiced separately.'
       : orderType === 'allowance'
-        ? 'Order confirmed — confirmation email sent. Dankie! Thank you! Danke! Shukran!'
-        : 'Order confirmed — Musa\'s been notified. Your email goes out once the invoice is attached. Dankie! Thank you! Danke! Shukran!');
+        ? 'Order confirmed'+forWhom+' — confirmation email sent'+(adminProxyMode?' to them':'')+'. Dankie! Thank you! Danke! Shukran!'
+        : 'Order confirmed'+forWhom+' — email goes out once the invoice is attached. Dankie! Thank you! Danke! Shukran!');
   }catch(e){
     console.error(e);
     // a price/amount mismatch means an item's price changed after it was added to the cart (the
@@ -880,7 +916,8 @@ function renderStaffTable(){
       'style="width:90px;padding:6px 8px;font-size:12px;border:1px solid #ccc;border-radius:3px'+(s.balance<0?';color:var(--bad)':'')+'" '+
       'onblur="saveStaffBalance(\''+safeName+'\', this.value)">';
     return '<tr><td>'+escapeHtml(s.name)+'</td><td>'+emailInput+'</td><td>'+escapeHtml(s.period)+'</td><td>'+allowanceInput+'</td><td>'+balanceInput+'</td>'+
-      '<td><button class="secondary" onclick="sendBalanceCopy(\''+safeName+'\')">Send Balance</button></td></tr>';
+      '<td><button class="secondary" onclick="startAdminOrder(\''+safeName+'\')">Place Order</button> '+
+      '<button class="secondary" onclick="sendBalanceCopy(\''+safeName+'\')">Send Balance</button></td></tr>';
   }).join('');
 }
 
