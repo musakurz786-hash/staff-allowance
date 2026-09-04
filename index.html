@@ -6,15 +6,19 @@
 <title>FOM Staff Allowance & Discount Portal</title>
 <style>
   :root{
-    --ink:#1c1c1c; --grey:#8a8a8a; --panel:#f5f5f5; --line:#e5e5e5; --good:#2e7d32; --bad:#c0392b; --brand-green:#8BC34A;
+    --ink:#1c1c1c; --grey:#8a8a8a; --panel:#f5f5f5; --line:#e5e5e5; --good:#2e7d32; --bad:#c0392b; --brand-green:#6E8C52;
   }
   *{box-sizing:border-box;}
   body{font-family:Helvetica,Arial,sans-serif;color:var(--ink);background:#fff;margin:0;}
   header{background:var(--brand-green);color:var(--ink);padding:18px 24px;display:flex;align-items:center;justify-content:space-between;}
   header .brand{font-size:13px;letter-spacing:3px;text-transform:uppercase;font-weight:bold;}
-  header nav{display:flex;gap:4px;}
-  header nav button{background:transparent;border:1px solid rgba(28,28,28,.35);color:var(--ink);padding:8px 16px;font-size:12px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:2px;}
-  header nav button.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+  header nav{display:flex;gap:8px;flex-wrap:wrap;}
+  header nav button{background:#fff;border:2px solid var(--ink);color:var(--ink);padding:9px 18px;font-size:12px;font-weight:bold;
+    letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:5px;box-shadow:0 2px 0 rgba(28,28,28,.35);
+    transition:transform .12s ease,box-shadow .12s ease;}
+  header nav button:hover{transform:translateY(-1px);box-shadow:0 3px 0 rgba(28,28,28,.4);}
+  header nav button:active{transform:translateY(1px);box-shadow:0 1px 0 rgba(28,28,28,.35);}
+  header nav button.active{background:var(--ink);color:#fff;border-color:var(--ink);box-shadow:0 2px 0 rgba(0,0,0,.5);}
   main{max-width:720px;margin:0 auto;padding:28px 20px 80px;}
   .view{display:none;}
   .view.active{display:block;}
@@ -62,9 +66,11 @@
   .lock{max-width:320px;margin:80px auto;text-align:center;}
 
   .category-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;margin-bottom:26px;}
-  .category-tile{background:#fff;border:1px solid var(--line);border-top:3px solid var(--cat-color,var(--brand-green));border-radius:10px;
-    padding:24px 14px 18px;text-align:center;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;}
-  .category-tile:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(28,28,28,.12);border-color:var(--cat-color,var(--brand-green));border-top-color:var(--cat-color,var(--brand-green));}
+  .category-tile{background:#fff;border:2px solid var(--cat-color,var(--brand-green));border-radius:10px;
+    padding:22px 14px 16px;text-align:center;cursor:pointer;box-shadow:0 3px 0 var(--cat-color,var(--brand-green));
+    transition:transform .15s ease,box-shadow .15s ease;}
+  .category-tile:hover{transform:translateY(-2px);box-shadow:0 5px 0 var(--cat-color,var(--brand-green));}
+  .category-tile:active{transform:translateY(1px);box-shadow:0 1px 0 var(--cat-color,var(--brand-green));}
   .category-tile .icon{width:46px;height:46px;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;
     background:var(--cat-tint,var(--panel));border-radius:50%;color:var(--cat-color,var(--ink));transition:background .18s ease,color .18s ease;}
   .category-tile .icon svg{width:22px;height:22px;}
