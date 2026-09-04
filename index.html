@@ -62,13 +62,13 @@
   .lock{max-width:320px;margin:80px auto;text-align:center;}
 
   .category-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;margin-bottom:26px;}
-  .category-tile{background:#fff;border:1px solid var(--line);border-radius:10px;padding:24px 14px 18px;text-align:center;cursor:pointer;
-    transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;}
-  .category-tile:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(28,28,28,.09);border-color:var(--brand-green);}
+  .category-tile{background:#fff;border:1px solid var(--line);border-top:3px solid var(--cat-color,var(--brand-green));border-radius:10px;
+    padding:24px 14px 18px;text-align:center;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;}
+  .category-tile:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(28,28,28,.12);border-color:var(--cat-color,var(--brand-green));border-top-color:var(--cat-color,var(--brand-green));}
   .category-tile .icon{width:46px;height:46px;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;
-    background:var(--panel);border-radius:50%;color:var(--ink);transition:background .18s ease,color .18s ease;}
+    background:var(--cat-tint,var(--panel));border-radius:50%;color:var(--cat-color,var(--ink));transition:background .18s ease,color .18s ease;}
   .category-tile .icon svg{width:22px;height:22px;}
-  .category-tile:hover .icon{background:var(--brand-green);color:#fff;}
+  .category-tile:hover .icon{background:var(--cat-color,var(--brand-green));color:#fff;}
   .category-tile .cat-name{font-size:12px;letter-spacing:1px;text-transform:uppercase;font-weight:bold;}
   .category-tile .cat-count{font-size:11px;color:var(--grey);margin-top:4px;}
   .category-active-bar{display:none;justify-content:space-between;align-items:center;margin-bottom:16px;}
@@ -535,31 +535,34 @@ let PRODUCTS = [];
 let selectedStaff = null;
 let activeCategory = null; // null = browsing the category tile grid; set once a tile is picked
 
-// Simple line icons, one per category as they actually appear in the products table (checked live
-// via the Supabase console 2026-09-04: Bags, Apparel, Footwear, Accessories, Wallets, Other, plus
-// some rows with no category at all — those fall into "Other" too, see categoryOf()).
-const CATEGORY_ICONS = {
-  'Apparel': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3l4 2 4-2 4 4-3 3v11H7V10L4 7z"/></svg>',
-  'Footwear': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c0-2 1-3.2 3-4.2l5-2.8 2 2h3c2 0 5 1 5 4v1a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M3 17v-3"/></svg>',
-  'Accessories': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.5" cy="13" r="3.5"/><circle cx="17.5" cy="13" r="3.5"/><path d="M10 12h4M3 12l2-5h2M21 12l-2-5h-2"/></svg>',
-  'Bags': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12l1 12H5z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>',
-  'Wallets': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><circle cx="16" cy="14" r="1.2" fill="currentColor" stroke="none"/></svg>',
-  'Other': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12l-8 8-9-9V4h7z"/><circle cx="7.5" cy="7.5" r="1.2" fill="currentColor" stroke="none"/></svg>'
+// One line icon + accent colour per category, as they actually appear in the products table
+// (checked live via the Supabase console 2026-09-04: Bags, Apparel, Footwear, Accessories,
+// Wallets, Other, plus some rows with no category at all — those fall into "Other" too, see
+// categoryOf()). Colours are earthy/muted to stay in FOM's palette rather than a generic rainbow.
+const CATEGORY_META = {
+  'Apparel':     { icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3l4 2 4-2 4 4-3 3v11H7V10L4 7z"/></svg>', color: '#C05B33', tint: '#FBE7DC' },
+  'Footwear':    { icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c0-2 1-3.2 3-4.2l5-2.8 2 2h3c2 0 5 1 5 4v1a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M3 17v-3"/></svg>', color: '#1F7A6C', tint: '#DFF3EE' },
+  'Accessories': { icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.5" cy="13" r="3.5"/><circle cx="17.5" cy="13" r="3.5"/><path d="M10 12h4M3 12l2-5h2M21 12l-2-5h-2"/></svg>', color: '#D99A1B', tint: '#FCF0D6' },
+  'Bags':        { icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12l1 12H5z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>', color: '#8A5A34', tint: '#F3E7DA' },
+  'Wallets':     { icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><circle cx="16" cy="14" r="1.2" fill="currentColor" stroke="none"/></svg>', color: '#8B3A5C', tint: '#F6E1EA' },
+  'Other':       { icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12l-8 8-9-9V4h7z"/><circle cx="7.5" cy="7.5" r="1.2" fill="currentColor" stroke="none"/></svg>', color: '#5B6470', tint: '#E9EBEE' }
 };
 const CATEGORY_ORDER = ['Apparel','Footwear','Accessories','Bags','Wallets','Other'];
 // products with no category, or a category we don't have a tile for, all land under "Other"
-function categoryOf(p){ return (p.category && CATEGORY_ICONS[p.category]) ? p.category : 'Other'; }
+function categoryOf(p){ return (p.category && CATEGORY_META[p.category]) ? p.category : 'Other'; }
 
 function buildCategoryGrid(){
   const counts = {};
   CATEGORY_ORDER.forEach(c => counts[c] = 0);
   PRODUCTS.forEach(p => { counts[categoryOf(p)]++; });
-  document.getElementById('categoryGrid').innerHTML = CATEGORY_ORDER.filter(c => counts[c] > 0).map(c =>
-    '<div class="category-tile" onclick="selectCategory(\''+c+'\')">'+
-      '<div class="icon">'+CATEGORY_ICONS[c]+'</div>'+
+  document.getElementById('categoryGrid').innerHTML = CATEGORY_ORDER.filter(c => counts[c] > 0).map(c => {
+    const m = CATEGORY_META[c];
+    return '<div class="category-tile" style="--cat-color:'+m.color+';--cat-tint:'+m.tint+'" onclick="selectCategory(\''+c+'\')">'+
+      '<div class="icon">'+m.icon+'</div>'+
       '<div class="cat-name">'+c+'</div>'+
       '<div class="cat-count">'+counts[c]+' item'+(counts[c]===1?'':'s')+'</div>'+
-    '</div>'
+    '</div>';
+  }
   ).join('');
 }
 
