@@ -27,11 +27,11 @@
     width:100%;padding:11px 12px;font-size:14px;border:1px solid #ccc;border-radius:3px;font-family:inherit;background:#fff;color:var(--ink);
   }
   .field{margin-bottom:18px;}
-  .balance-card{background:var(--panel);border-radius:4px;padding:18px 20px;margin-bottom:24px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;}
-  .balance-card div{flex:1;min-width:110px;}
-  .balance-card .label{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--grey);margin-bottom:4px;}
-  .balance-card .value{font-size:20px;font-weight:bold;}
-  .balance-card .value.low{color:var(--bad);}
+  .balance-card{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;}
+  .balance-card .stat{flex:1;min-width:120px;background:var(--stat-tint,var(--panel));border:2px solid var(--stat-color,var(--brand-green));
+    border-radius:10px;padding:14px 18px;box-shadow:0 3px 0 var(--stat-color,var(--brand-green));}
+  .balance-card .label{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--grey);margin-bottom:6px;}
+  .balance-card .value{font-size:20px;font-weight:bold;color:var(--ink);}
   .results{border:1px solid var(--line);border-radius:4px;max-height:360px;overflow:auto;margin-bottom:20px;}
   .result-row{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer;gap:10px;}
   .result-row:last-child{border-bottom:none;}
@@ -153,9 +153,9 @@
 
     <div id="orderContent" style="display:none">
       <div id="balanceCard" class="balance-card" style="display:none">
-        <div><div class="label">Annual Allowance</div><div class="value" id="balAllowance">R0</div></div>
-        <div><div class="label" id="balBalanceLabel">Balance Remaining</div><div class="value" id="balBalance">R0</div></div>
-        <div><div class="label">Period</div><div class="value" id="balPeriod">-</div></div>
+        <div class="stat" style="--stat-color:#2C5F8A;--stat-tint:#E1EBF3"><div class="label">Annual Allowance</div><div class="value" id="balAllowance">R0</div></div>
+        <div class="stat" id="balBalanceStat" style="--stat-color:#6E8C52;--stat-tint:#EAF0E3"><div class="label" id="balBalanceLabel">Balance Remaining</div><div class="value" id="balBalance">R0</div></div>
+        <div class="stat" style="--stat-color:#5B6470;--stat-tint:#E9EBEE"><div class="label">Period</div><div class="value" id="balPeriod">-</div></div>
       </div>
 
       <div id="departmentView" style="display:none">
@@ -711,7 +711,10 @@ function renderBalanceCard(){
   const isOutstanding = selectedStaff.balance < 0;
   labelEl.textContent = isOutstanding ? 'Outstanding Balance' : 'Balance Remaining';
   balEl.textContent = 'R'+money(Math.abs(selectedStaff.balance));
-  balEl.className = 'value'+(selectedStaff.balance <= 0 ? ' low' : '');
+  const isLow = selectedStaff.balance <= 0;
+  const balStat = document.getElementById('balBalanceStat');
+  balStat.style.setProperty('--stat-color', isLow ? '#c0392b' : '#6E8C52');
+  balStat.style.setProperty('--stat-tint', isLow ? '#FBE3E1' : '#EAF0E3');
   document.getElementById('balPeriod').textContent = selectedStaff.period;
   document.getElementById('orderPanel').innerHTML = '';
   cart = [];
