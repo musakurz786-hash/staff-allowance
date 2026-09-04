@@ -152,13 +152,18 @@
         <div><div class="label">Period</div><div class="value" id="balPeriod">-</div></div>
       </div>
 
+      <div id="departmentView" style="display:none">
+        <label>Shop by Department</label>
+        <div id="departmentGrid" class="category-grid"></div>
+      </div>
+
       <div id="categoryView">
         <label>Shop by Category</label>
         <div id="categoryGrid" class="category-grid"></div>
       </div>
 
       <div id="categoryActiveBar" class="category-active-bar">
-        <div class="category-back" onclick="clearCategory()">&larr; All Categories</div>
+        <div class="category-back" onclick="clearFilter()">&larr; Browse All</div>
         <div class="category-active-label" id="categoryActiveLabel"></div>
       </div>
 
@@ -533,7 +538,8 @@ async function changePin(){
 // ---------------- ORDER VIEW ----------------
 let PRODUCTS = [];
 let selectedStaff = null;
-let activeCategory = null; // null = browsing the category tile grid; set once a tile is picked
+let activeFilter = null; // null = browsing the tile grids; else {type:'category'|'department', value, label}
+let hasDepartmentTiles = false; // whether the Shop by Department row has anything to show at all
 
 // One line icon + accent colour per category, as they actually appear in the products table
 // (checked live via the Supabase console 2026-09-04: Bags, Apparel, Footwear, Accessories,
@@ -551,34 +557,71 @@ const CATEGORY_ORDER = ['Apparel','Footwear','Accessories','Bags','Wallets','Oth
 // products with no category, or a category we don't have a tile for, all land under "Other"
 function categoryOf(p){ return (p.category && CATEGORY_META[p.category]) ? p.category : 'Other'; }
 
+// Department (Mens/Ladies/Unisex) isn't its own column — there's no gender field in the products
+// table — but the product name reliably starts with it where it applies (checked live 2026-09-04:
+// "Mens FreeMotion Joggers...", "Ladies Retro Runner...", "Unisex Sunnies..."). Bags, wallets, and
+// plenty of accessories aren't gendered at all, so genderOf() returns null for those rather than
+// forcing them into a bucket — they stay reachable via Shop by Category or search instead.
+const DEPARTMENT_META = {
+  'Mens':   { icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6l-1 3-2 1-2-1z"/><path d="M10 8l-2.5 11 4.5 3 4.5-3L14 8"/></svg>', color: '#35586E', tint: '#E0E8ED' },
+  'Ladies': { icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6l1 5-2 1v2l4 9c0 1-2 2-6 2s-6-1-6-2l4-9v-2l-2-1z"/></svg>', color: '#B5546B', tint: '#F7E2E7' },
+  'Unisex': { icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="3.2"/><path d="M5 20c0-4.5 3.2-7.5 7-7.5s7 3 7 7.5"/></svg>', color: '#5F7A3D', tint: '#E7F0DC' }
+};
+const DEPARTMENT_ORDER = ['Mens','Ladies','Unisex'];
+function genderOf(p){
+  const n = (p.product||'').trim().toLowerCase();
+  if(n.startsWith('mens ')) return 'Mens';
+  if(n.startsWith('ladies ')) return 'Ladies';
+  if(n.startsWith('unisex ')) return 'Unisex';
+  return null; // no gender encoded in the name — not shown under any department tile
+}
+
 function buildCategoryGrid(){
   const counts = {};
   CATEGORY_ORDER.forEach(c => counts[c] = 0);
   PRODUCTS.forEach(p => { counts[categoryOf(p)]++; });
-  document.getElementById('categoryGrid').innerHTML = CATEGORY_ORDER.filter(c => counts[c] > 0).map(c => {
-    const m = CATEGORY_META[c];
-    return '<div class="category-tile" style="--cat-color:'+m.color+';--cat-tint:'+m.tint+'" onclick="selectCategory(\''+c+'\')">'+
-      '<div class="icon">'+m.icon+'</div>'+
-      '<div class="cat-name">'+c+'</div>'+
-      '<div class="cat-count">'+counts[c]+' item'+(counts[c]===1?'':'s')+'</div>'+
-    '</div>';
-  }
+  document.getElementById('categoryGrid').innerHTML = CATEGORY_ORDER.filter(c => counts[c] > 0).map(c =>
+    tileHtml(c, CATEGORY_META[c], counts[c], 'selectCategory')
   ).join('');
 }
 
-function selectCategory(cat){
-  activeCategory = cat;
+function buildDepartmentGrid(){
+  const counts = {};
+  DEPARTMENT_ORDER.forEach(d => counts[d] = 0);
+  PRODUCTS.forEach(p => { const g = genderOf(p); if(g) counts[g]++; });
+  const html = DEPARTMENT_ORDER.filter(d => counts[d] > 0).map(d =>
+    tileHtml(d, DEPARTMENT_META[d], counts[d], 'selectDepartment')
+  ).join('');
+  document.getElementById('departmentGrid').innerHTML = html;
+  hasDepartmentTiles = !!html;
+  document.getElementById('departmentView').style.display = hasDepartmentTiles ? 'block' : 'none';
+}
+
+function tileHtml(label, meta, count, onclickFn){
+  return '<div class="category-tile" style="--cat-color:'+meta.color+';--cat-tint:'+meta.tint+'" onclick="'+onclickFn+'(\''+label+'\')">'+
+    '<div class="icon">'+meta.icon+'</div>'+
+    '<div class="cat-name">'+label+'</div>'+
+    '<div class="cat-count">'+count+' item'+(count===1?'':'s')+'</div>'+
+  '</div>';
+}
+
+function selectCategory(cat){ activeFilter = {type:'category', value:cat, label:cat}; enterFilteredView(); }
+function selectDepartment(dep){ activeFilter = {type:'department', value:dep, label:dep}; enterFilteredView(); }
+
+function enterFilteredView(){
   document.getElementById('categoryView').style.display = 'none';
+  document.getElementById('departmentView').style.display = 'none';
   document.getElementById('categoryActiveBar').style.display = 'flex';
-  document.getElementById('categoryActiveLabel').textContent = cat;
+  document.getElementById('categoryActiveLabel').textContent = activeFilter.label;
   document.getElementById('productSearch').value = '';
   document.getElementById('productSearch').focus();
   onSearch();
 }
 
-function clearCategory(){
-  activeCategory = null;
+function clearFilter(){
+  activeFilter = null;
   document.getElementById('categoryView').style.display = 'block';
+  document.getElementById('departmentView').style.display = hasDepartmentTiles ? 'block' : 'none';
   document.getElementById('categoryActiveBar').style.display = 'none';
   document.getElementById('productSearch').value = '';
   document.getElementById('results').style.display = 'none';
@@ -624,6 +667,7 @@ async function initOrderView(){
     PRODUCTS = await sbAll('products?select=*&order=product.asc');
     document.getElementById('productSearch').disabled = false;
     buildCategoryGrid();
+    buildDepartmentGrid();
   }catch(e){ console.error(e); toast('Could not load product catalog', true); }
 
   let duplicateMatch = false;
@@ -665,20 +709,23 @@ function renderBalanceCard(){
   document.getElementById('balPeriod').textContent = selectedStaff.period;
   document.getElementById('orderPanel').innerHTML = '';
   cart = [];
-  clearCategory(); // back to the tile grid whenever the order screen is (re)entered for a staff member
+  clearFilter(); // back to the tile grids whenever the order screen is (re)entered for a staff member
 }
 
 function onSearch(){
   const q = document.getElementById('productSearch').value.trim().toLowerCase();
   const results = document.getElementById('results');
-  // inside a category tile, browse everything in it immediately; outside one, still require 2+
-  // chars so the whole catalog doesn't dump onto the screen from an empty/near-empty global search
-  if(!activeCategory && q.length < 2){ results.style.display='none'; results.innerHTML=''; return; }
-  let matches = activeCategory ? PRODUCTS.filter(p => categoryOf(p) === activeCategory) : PRODUCTS;
+  // inside a department/category tile, browse everything in it immediately; outside one, still
+  // require 2+ chars so the whole catalog doesn't dump onto the screen from a near-empty search
+  if(!activeFilter && q.length < 2){ results.style.display='none'; results.innerHTML=''; return; }
+  let matches = PRODUCTS;
+  if(activeFilter){
+    matches = matches.filter(p => activeFilter.type === 'category' ? categoryOf(p) === activeFilter.value : genderOf(p) === activeFilter.value);
+  }
   if(q.length >= 2) matches = matches.filter(p => p.product.toLowerCase().includes(q) || (p.sku||'').toLowerCase().includes(q));
   matches = matches.slice(0,100);
   results.style.display='block';
-  if(!matches.length){ results.innerHTML = '<div class="empty">No products match'+(q?(' "'+escapeHtml(q)+'"'):' this category')+'</div>'; return; }
+  if(!matches.length){ results.innerHTML = '<div class="empty">No products match'+(q?(' "'+escapeHtml(q)+'"'):' this filter')+'</div>'; return; }
   results.innerHTML = matches.map(p => {
     const out = Number(p.available) <= 0;
     const unpriced = !(Number(p.rsp) > 0);
@@ -1223,6 +1270,7 @@ async function importStockFile(){
   status.textContent = 'Done — '+updates.length+' products updated. Reloading catalog...';
   PRODUCTS = await sbAll('products?select=*&order=product.asc');
   buildCategoryGrid();
+  buildDepartmentGrid();
   status.textContent = 'Stock import complete: '+updates.length+' products updated'+(locationCol>=0 ? ' (HQ only, '+skippedLocation+' other-location rows skipped)' : '')+'.';
 }
 
@@ -1530,6 +1578,7 @@ async function applyShopifyPricing(){
     status.textContent = 'Done — '+total+' product(s) applied ('+shopifyNewProducts.length+' new). Reloading catalog...';
     PRODUCTS = await sbAll('products?select=*&order=product.asc');
     buildCategoryGrid();
+    buildDepartmentGrid();
     status.textContent = 'Done — '+total+' product(s) applied ('+shopifyNewProducts.length+' new).';
     toast('Shopify pricing applied');
   }catch(e){
