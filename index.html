@@ -1714,7 +1714,11 @@ async function applyPhotoImport(){
   const status = document.getElementById('photoImportStatus');
   try{
     const batchSize = 500;
-    const updates = photoImportChanges.map(c => ({ sku: c.sku, image_url: c.newUrl }));
+    // must include product (NOT NULL, no default) even though we're only changing image_url —
+    // PostgREST's upsert still constructs a full INSERT ... ON CONFLICT DO UPDATE statement, and
+    // Postgres checks NOT NULL constraints on the proposed row before the conflict redirect kicks
+    // in, so omitting it fails the whole batch (see stock/Shopify-pricing imports for the same rule)
+    const updates = photoImportChanges.map(c => ({ sku: c.sku, product: c.product, image_url: c.newUrl }));
     for(let i=0;i<updates.length;i+=batchSize){
       await sb('POST','products', updates.slice(i,i+batchSize), {'Prefer':'resolution=merge-duplicates,return=minimal'});
       status.textContent = 'Updated '+Math.min(i+batchSize,updates.length)+' / '+updates.length+' photo(s)...';
