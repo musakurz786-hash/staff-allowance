@@ -17,6 +17,9 @@ create table products (
   subcat text,
   rsp numeric not null default 0,
   available numeric default 0,
+  image_url text, -- pulled from freedomofmovement.co.za's public Shopify product feed by SKU,
+    -- via Admin -> Import Product Photos. Not populated by the Cin7 stock import or Shopify
+    -- pricing import — those don't carry a photo.
   updated_at timestamptz default now()
 );
 
