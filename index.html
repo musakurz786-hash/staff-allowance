@@ -1503,11 +1503,12 @@ let cin7PricingNewProducts = [];
 // distinct pattern unique to this report — description-only rows (shipping options, bundle deals)
 // where the "SKU" cell is literally just the product name repeated, since there's no real code.
 const uuidLikeSku = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const nonMerchSkuCin7 = /^(10001|TI001|vend-discount|vend-internal-gift-card)$/i;
-function isJunkPriceRow(sku, product){
+const nonMerchSkuCin7 = /^(1|10001|TI001|vend-discount|vend-internal-gift-card)$/i;
+function isJunkPriceRow(sku, product, rsp){
   if(uuidLikeSku.test(sku)) return true;
   if(nonMerchSkuCin7.test(sku)) return true;
   if(sku.toLowerCase() === product.toLowerCase()) return true; // e.g. "Shipping - Collect From..." used as its own SKU
+  if(Number(rsp) < 0) return true; // no real merchandise has a negative RSP — catches any other coupon/discount row shape
   return false;
 }
 
@@ -1549,8 +1550,8 @@ async function previewCin7Pricing(){
     const sku = r[skuCol] ? String(r[skuCol]).trim() : '';
     if(!sku || seen.has(sku)) continue;
     const productName = productCol>=0 ? String(r[productCol]||'').trim() : '';
-    if(isJunkPriceRow(sku, productName)){ skippedJunk++; continue; }
     const priceRaw = r[rspCol];
+    if(isJunkPriceRow(sku, productName, priceRaw)){ skippedJunk++; continue; }
     if(priceRaw===undefined || priceRaw==='' || isNaN(Number(priceRaw))) continue;
     seen.add(sku);
     const newRsp = Number(priceRaw);
