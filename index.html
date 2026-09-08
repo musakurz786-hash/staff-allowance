@@ -253,8 +253,17 @@
       </div>
 
       <div class="admin-section">
+        <h2>Import Sale Pricing (Live from Website)</h2>
+        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Pulls the same live product feed as Import Product Photos and finds every SKU where the site's price undercuts its "compare at" price — i.e. genuinely on sale right now — and matches it to your catalog by SKU. Overwrites RSP directly, same as the Cin7 pricing import — meaning a later Cin7 import will silently reset it back to full price once the sale ends there too, which is the expected order of operations.</p>
+        <button class="secondary" style="margin-top:10px" onclick="previewLiveSalePricing()">Fetch &amp; Preview</button>
+        <div id="liveSalePricingStatus" style="font-size:13px;margin-top:10px;color:var(--grey)"></div>
+        <div id="liveSalePricingPreview" style="margin-top:10px;overflow-x:auto;max-height:400px;overflow-y:auto"></div>
+        <button class="primary" id="applyLiveSalePricingBtn" style="display:none" onclick="applyLiveSalePricing()">Apply Updates</button>
+      </div>
+
+      <div class="admin-section">
         <h2>Import Sale Pricing (Markdown, manual paste)</h2>
-        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Fallback for one-off lists with no Matrixify export handy. Paste rows as <strong>Style [tab] Discount% [tab] MD RSP</strong>, one per line. Matches by exact product name, which is less reliable than the Shopify import above — use that instead when you can.</p>
+        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Fallback for a sale that isn't reflected on the website yet, or a one-off list. Paste rows as <strong>Style [tab] Discount% [tab] MD RSP</strong>, one per line. Matches by exact product name, which is less reliable than the live import above — use that instead when the sale is already live on the site.</p>
         <textarea id="salePricingInput" rows="8" style="width:100%;font-family:monospace;font-size:12px;padding:10px;border:1px solid #ccc;border-radius:3px" placeholder="Ladies Barrel Denim - Indigo&#9;60%&#9;518.00"></textarea>
         <button class="secondary" style="margin-top:10px" onclick="previewSalePricing()">Preview Changes</button>
         <div id="salePricingStatus" style="font-size:13px;margin-top:10px;color:var(--grey)"></div>
@@ -1736,6 +1745,97 @@ async function applyPhotoImport(){
   photoImportChanges = [];
   document.getElementById('applyPhotoImportBtn').style.display = 'none';
   document.getElementById('photoImportPreview').innerHTML = '';
+}
+
+// ---------------- SALE PRICING, LIVE FROM THE WEBSITE (same feed as Import Product Photos) ----------------
+// Shopify sets compare_at_price to the pre-sale price whenever a variant is discounted; price is
+// what a customer actually pays right now. price < compare_at_price is the live "on sale" signal —
+// confirmed against the real feed 2026-09-04 (631 SKUs on sale at the time). Overwrites RSP
+// directly, same mechanism as the Cin7 pricing import, at the user's explicit choice — meaning
+// whichever import runs last wins, and a later Cin7 import will reset a sale price back to full
+// once that sale isn't reflected in Cin7 either. Only updates SKUs already in the catalog; unlike
+// the Cin7 import this doesn't add new products (a sale price alone isn't enough to catalog an
+// item properly — no category is known for a SKU we've never seen).
+let liveSalePricingChanges = []; // [{sku, product, currentRsp, newRsp}]
+
+async function fetchShopifySalePrices(status){
+  const bySku = new Map();
+  for(let page=1; page<=20; page++){
+    if(status) status.textContent = 'Fetching product feed, page '+page+'...';
+    const r = await fetch('https://www.freedomofmovement.co.za/products.json?limit=250&page='+page);
+    if(!r.ok) throw new Error('Website returned '+r.status+' fetching the product feed');
+    const j = await r.json();
+    const products = j.products || [];
+    if(!products.length) break;
+    for(const p of products){
+      for(const v of (p.variants || [])){
+        if(!v.sku) continue;
+        const price = Number(v.price);
+        const cap = Number(v.compare_at_price);
+        if(cap && cap > price) bySku.set(v.sku, price);
+      }
+    }
+    if(products.length < 250) break; // last page
+  }
+  return bySku;
+}
+
+async function previewLiveSalePricing(){
+  const status = document.getElementById('liveSalePricingStatus');
+  const previewDiv = document.getElementById('liveSalePricingPreview');
+  document.getElementById('applyLiveSalePricingBtn').style.display = 'none';
+  previewDiv.innerHTML = '';
+  liveSalePricingChanges = [];
+  try{
+    const onSale = await fetchShopifySalePrices(status);
+    status.textContent = 'Matching '+PRODUCTS.length+' catalog products by SKU...';
+    const changes = [];
+    for(const p of PRODUCTS){
+      const salePrice = onSale.get(p.sku);
+      if(salePrice === undefined) continue;
+      if(Math.round(Number(p.rsp)*100) === Math.round(salePrice*100)) continue;
+      changes.push({ sku: p.sku, product: p.product, currentRsp: Number(p.rsp), newRsp: salePrice });
+    }
+    liveSalePricingChanges = changes;
+    if(!changes.length){
+      previewDiv.innerHTML = '<p style="font-size:13px;color:var(--grey)">No matching SKUs are on sale right now (or your catalog already reflects it).</p>';
+    } else {
+      previewDiv.innerHTML = '<table class="admin"><thead><tr><th>Product</th><th>SKU</th><th>Current RSP</th><th>Sale RSP</th></tr></thead><tbody>'+
+        changes.map(c => '<tr><td>'+escapeHtml(c.product)+'</td><td>'+escapeHtml(c.sku)+'</td><td>R'+money(c.currentRsp)+'</td><td>R'+money(c.newRsp)+'</td></tr>').join('')+
+        '</tbody></table>';
+      document.getElementById('applyLiveSalePricingBtn').style.display = 'block';
+    }
+    status.textContent = onSale.size+' SKU(s) on sale on the website, '+changes.length+' would change in your catalog. Nothing has been saved yet.';
+  }catch(e){
+    console.error(e);
+    status.textContent = 'Could not fetch the product feed — '+(e.message||e);
+    toast('Sale pricing fetch failed', true);
+  }
+}
+
+async function applyLiveSalePricing(){
+  if(!liveSalePricingChanges.length) return;
+  if(!confirm('Apply '+liveSalePricingChanges.length+' sale price(s)? This directly changes what staff pay/allowance is charged. A later Cin7 pricing import will reset these back to full RSP once the sale ends there too.')) return;
+  const status = document.getElementById('liveSalePricingStatus');
+  try{
+    const batchSize = 500;
+    const updates = liveSalePricingChanges.map(c => ({ sku: c.sku, product: c.product, rsp: c.newRsp, updated_at: new Date().toISOString() }));
+    for(let i=0;i<updates.length;i+=batchSize){
+      await sb('POST','products', updates.slice(i,i+batchSize), {'Prefer':'resolution=merge-duplicates,return=minimal'});
+      status.textContent = 'Updated '+Math.min(i+batchSize,updates.length)+' / '+updates.length+' price(s)...';
+    }
+    status.textContent = 'Done — '+updates.length+' sale price(s) applied. Reloading catalog...';
+    PRODUCTS = await sbAll('products?select=*&order=product.asc');
+    status.textContent = 'Done — '+updates.length+' sale price(s) applied.';
+    toast('Sale pricing applied');
+  }catch(e){
+    console.error(e);
+    status.textContent = 'Something went wrong partway through — re-run Fetch & Preview to see what still needs updating.';
+    toast('Could not finish applying sale pricing', true);
+  }
+  liveSalePricingChanges = [];
+  document.getElementById('applyLiveSalePricingBtn').style.display = 'none';
+  document.getElementById('liveSalePricingPreview').innerHTML = '';
 }
 
 let salePricingChanges = [];
