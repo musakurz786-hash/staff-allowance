@@ -234,13 +234,13 @@
       </div>
 
       <div class="admin-section">
-        <h2>Import Shopify Pricing</h2>
-        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Upload a Matrixify products export (.xlsx). Matches by SKU and updates RSP only — Shopify's "Variant Inventory Qty" turned out not to be reliably HQ-specific (it reads as store-wide total, not per-location), so stock stays exclusively sourced from the Cin7 daily report to avoid corrupting availability. Genuinely new Active SKUs are still added (stock starts at 0 until the next Cin7 import picks them up).</p>
-        <input type="file" id="shopifyPricingFile" accept=".xlsx,.xls,.csv">
-        <button class="secondary" style="margin-top:10px" onclick="previewShopifyPricing()">Preview Changes</button>
-        <div id="shopifyPricingStatus" style="font-size:13px;margin-top:10px;color:var(--grey)"></div>
-        <div id="shopifyPricingPreview" style="margin-top:10px;overflow-x:auto;max-height:400px;overflow-y:auto"></div>
-        <button class="primary" id="applyShopifyPricingBtn" style="display:none" onclick="applyShopifyPricing()">Apply Updates</button>
+        <h2>Import Cin7 RSP Pricing</h2>
+        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Upload Cin7's "Products Price List" export (.xlsx). Matches by SKU and updates RSP only, from the real ERP price — not the website's, which can be a markdown or simply unpublished. Stock stays exclusively sourced from the Cin7 stock report; genuinely new SKUs found here are still added (stock starts at 0 until the next stock import picks them up). Promo/bundle/shipping/gift-card rows in this export are automatically skipped.</p>
+        <input type="file" id="cin7PricingFile" accept=".xlsx,.xls,.csv">
+        <button class="secondary" style="margin-top:10px" onclick="previewCin7Pricing()">Preview Changes</button>
+        <div id="cin7PricingStatus" style="font-size:13px;margin-top:10px;color:var(--grey)"></div>
+        <div id="cin7PricingPreview" style="margin-top:10px;overflow-x:auto;max-height:400px;overflow-y:auto"></div>
+        <button class="primary" id="applyCin7PricingBtn" style="display:none" onclick="applyCin7Pricing()">Apply Updates</button>
       </div>
 
       <div class="admin-section">
@@ -1488,94 +1488,97 @@ async function savePriceEdit(sku){
   }
 }
 
-let shopifyPricingChanges = [];
+// Cin7's "Products Price List" export — replaces the old Shopify/Matrixify pricing import
+// (2026-09-04) now that we have a direct-from-ERP RSP source instead of scraping the website's
+// price, which could be a markdown or simply unpublished (read as 0). Real shape confirmed live:
+// a pivot-table export with a "Grand Total" artifact row before the real header, "SKU"/"Product
+// attribute 5" (actually the category, despite the generic-looking name)/"Product"/"Current RSP"
+// columns, and a mix of real merchandise plus promo/bundle/service junk rows — see isJunkPriceRow.
+let cin7PricingChanges = [];
+let cin7PricingNewProducts = [];
 
-function findMatrixifyProductsSheet(wb){
-  if(wb.Sheets['Products']) return wb.Sheets['Products'];
-  for(const name of wb.SheetNames){
-    const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], {header:1});
-    if(rows.some(r => r.some(c => String(c).trim().toLowerCase()==='variant sku'))) return wb.Sheets[name];
-  }
-  return null;
+// Junk rows seen in the real export: "Buy 2 for X"-style promos use a random UUID as their "SKU"
+// (Cin7 auto-generates one for a line item that doesn't have a real code); services/fees/gift
+// cards reuse the exact same known codes as the stock importer's non-merchandise filter; and a
+// distinct pattern unique to this report — description-only rows (shipping options, bundle deals)
+// where the "SKU" cell is literally just the product name repeated, since there's no real code.
+const uuidLikeSku = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const nonMerchSkuCin7 = /^(10001|TI001|vend-discount|vend-internal-gift-card)$/i;
+function isJunkPriceRow(sku, product){
+  if(uuidLikeSku.test(sku)) return true;
+  if(nonMerchSkuCin7.test(sku)) return true;
+  if(sku.toLowerCase() === product.toLowerCase()) return true; // e.g. "Shipping - Collect From..." used as its own SKU
+  return false;
 }
 
-let shopifyNewProducts = [];
-
-async function previewShopifyPricing(){
-  const input = document.getElementById('shopifyPricingFile');
-  const status = document.getElementById('shopifyPricingStatus');
-  const previewDiv = document.getElementById('shopifyPricingPreview');
-  document.getElementById('applyShopifyPricingBtn').style.display = 'none';
+async function previewCin7Pricing(){
+  const input = document.getElementById('cin7PricingFile');
+  const status = document.getElementById('cin7PricingStatus');
+  const previewDiv = document.getElementById('cin7PricingPreview');
+  document.getElementById('applyCin7PricingBtn').style.display = 'none';
   previewDiv.innerHTML = '';
-  shopifyPricingChanges = [];
-  shopifyNewProducts = [];
+  cin7PricingChanges = [];
+  cin7PricingNewProducts = [];
   if(!input.files.length){ toast('Choose a file first', true); return; }
 
   status.textContent = 'Reading file...';
   const file = input.files[0];
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(buf, {type:'array'});
-  const ws = findMatrixifyProductsSheet(wb);
-  if(!ws){ status.textContent = 'Could not find a "Variant SKU" column in this file — is it a Matrixify products export?'; return; }
+  const ws = wb.Sheets[wb.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json(ws, {header:1});
 
-  const headerIdx = rows.findIndex(r => r.some(c => String(c).trim().toLowerCase()==='variant sku'));
+  const headerIdx = rows.findIndex(r => r.some(c => String(c).trim().toLowerCase()==='sku'));
+  if(headerIdx === -1){ status.textContent = 'Could not find an "SKU" column in this file.'; return; }
   const header = rows[headerIdx].map(h => String(h).trim().toLowerCase());
-  const skuCol = header.indexOf('variant sku');
-  const priceCol = header.indexOf('variant price');
-  const titleCol = header.indexOf('title');
-  const typeCol = header.indexOf('type');
-  const statusCol = header.indexOf('status');
-  if(priceCol < 0){ status.textContent = 'Could not find a "Variant Price" column in this file.'; return; }
+  const skuCol = header.indexOf('sku');
+  const productCol = header.indexOf('product');
+  const categoryCol = header.indexOf('product attribute 5'); // Cin7's category field, despite the generic name
+  const rspCol = header.indexOf('current rsp');
+  if(rspCol < 0){ status.textContent = 'Could not find a "Current RSP" column in this file.'; return; }
 
   const productsBySku = {};
   PRODUCTS.forEach(p => productsBySku[p.sku] = p);
 
   const changes = [];
   const newProducts = [];
-  let skippedInactive = 0;
-  let skippedNoTitle = 0;
+  let skippedJunk = 0;
   const seen = new Set();
   for(let i=headerIdx+1;i<rows.length;i++){
     const r = rows[i];
     const sku = r[skuCol] ? String(r[skuCol]).trim() : '';
     if(!sku || seen.has(sku)) continue;
-    const priceRaw = r[priceCol];
+    const productName = productCol>=0 ? String(r[productCol]||'').trim() : '';
+    if(isJunkPriceRow(sku, productName)){ skippedJunk++; continue; }
+    const priceRaw = r[rspCol];
     if(priceRaw===undefined || priceRaw==='' || isNaN(Number(priceRaw))) continue;
     seen.add(sku);
     const newRsp = Number(priceRaw);
     const prod = productsBySku[sku];
 
     if(prod){
-      // pricing only — stock deliberately stays sourced from Cin7, see the note above
+      // pricing only — stock stays exclusively whatever the Cin7 stock report last set it to
       if(Math.round(Number(prod.rsp)*100) !== Math.round(newRsp*100)){
         changes.push({ sku, product: prod.product, currentRsp: Number(prod.rsp), newRsp });
       }
       continue;
     }
 
-    // not in the catalog yet — only add it if Shopify actually has it Active (Draft/Archived
-    // items are excluded on purpose, not because of a matching failure). Stock starts at 0 and
-    // gets filled in by the next Cin7 stock import, not from this file.
-    const statusVal = statusCol>=0 ? String(r[statusCol]||'').trim().toLowerCase() : 'active';
-    if(statusVal && statusVal !== 'active'){ skippedInactive++; continue; }
-    const title = titleCol>=0 ? String(r[titleCol]||'').trim() : '';
-    if(!title){ skippedNoTitle++; continue; }
-    const type = typeCol>=0 ? String(r[typeCol]||'').trim() : '';
-    newProducts.push({ sku, product: title, category: type || null, rsp: newRsp, available: 0 });
+    // not in the catalog yet, and not junk — genuinely new merchandise. Stock starts at 0 until
+    // the next Cin7 stock import, not from this file (this file has no stock-on-hand column).
+    if(!productName) continue;
+    const category = categoryCol>=0 ? (String(r[categoryCol]||'').trim() || null) : null;
+    newProducts.push({ sku, product: productName, category, rsp: newRsp, available: 0 });
   }
-  shopifyPricingChanges = changes;
-  shopifyNewProducts = newProducts;
+  cin7PricingChanges = changes;
+  cin7PricingNewProducts = newProducts;
 
   let html = '';
-  if(skippedInactive){
-    html += '<p style="font-size:12px;color:var(--grey)">'+skippedInactive+' SKU(s) skipped — Draft/Archived in Shopify, not added.</p>';
-  }
-  if(skippedNoTitle){
-    html += '<p style="font-size:12px;color:var(--bad)">'+skippedNoTitle+' SKU(s) are Active but had no title, so couldn\'t be added — check these in Shopify.</p>';
+  if(skippedJunk){
+    html += '<p style="font-size:12px;color:var(--grey)">'+skippedJunk+' non-merchandise row(s) skipped (promos, bundles, shipping, gift cards).</p>';
   }
   if(newProducts.length){
-    html += '<h3 style="font-size:13px;margin:16px 0 6px">New products to add ('+newProducts.length+') — stock starts at 0 until the next Cin7 import</h3>';
+    html += '<h3 style="font-size:13px;margin:16px 0 6px">New products to add ('+newProducts.length+') — stock starts at 0 until the next Cin7 stock import</h3>';
     html += '<table class="admin"><thead><tr><th>Product</th><th>SKU</th><th>Category</th><th>RSP</th></tr></thead><tbody>';
     newProducts.forEach(n=>{
       html += '<tr><td>'+escapeHtml(n.product)+'</td><td>'+escapeHtml(n.sku)+'</td><td>'+escapeHtml(n.category||'')+'</td><td>R'+money(n.rsp)+'</td></tr>';
@@ -1595,49 +1598,46 @@ async function previewShopifyPricing(){
   if(!newProducts.length && !changes.length){
     html += '<p style="font-size:13px;color:var(--grey)">Everything already matches — nothing to update.</p>';
   } else {
-    document.getElementById('applyShopifyPricingBtn').style.display = 'block';
+    document.getElementById('applyCin7PricingBtn').style.display = 'block';
   }
   previewDiv.innerHTML = html;
-  status.textContent = newProducts.length+' new product(s), '+changes.length+' existing product(s) would change. Nothing has been saved yet.';
+  status.textContent = newProducts.length+' new product(s), '+changes.length+' existing product(s) would change, '+skippedJunk+' skipped as non-merchandise. Nothing has been saved yet.';
 }
 
-async function applyShopifyPricing(){
-  const total = shopifyPricingChanges.length + shopifyNewProducts.length;
+async function applyCin7Pricing(){
+  const total = cin7PricingChanges.length + cin7PricingNewProducts.length;
   if(!total) return;
-  if(!confirm('Apply '+total+' change(s) ('+shopifyNewProducts.length+' new, '+shopifyPricingChanges.length+' price updates)? This directly changes what staff pay/allowance is charged. Stock is not touched by this import.')) return;
-  const status = document.getElementById('shopifyPricingStatus');
+  if(!confirm('Apply '+total+' change(s) ('+cin7PricingNewProducts.length+' new, '+cin7PricingChanges.length+' price updates)? This directly changes what staff pay/allowance is charged. Stock is not touched by this import.')) return;
+  const status = document.getElementById('cin7PricingStatus');
   try{
     const batchSize = 500;
-    // existing rows: only rsp is sent (a different key set than new products below), so available
-    // is left completely untouched — stock stays exclusively whatever Cin7 last set it to. Kept as
-    // its own separate upsert call rather than combined with new-product rows, since PostgREST's
-    // bulk upsert requires every object in one request to have identical keys (see PGRST102, hit
-    // earlier today) and these two row shapes genuinely differ.
-    const updates = shopifyPricingChanges.map(c => ({ sku: c.sku, product: c.product, rsp: c.newRsp, updated_at: new Date().toISOString() }));
+    // existing vs new rows are kept as separate upsert calls since PostgREST's bulk upsert
+    // requires every object in one request to have identical keys (see PGRST102)
+    const updates = cin7PricingChanges.map(c => ({ sku: c.sku, product: c.product, rsp: c.newRsp, updated_at: new Date().toISOString() }));
     for(let i=0;i<updates.length;i+=batchSize){
       await sb('POST','products', updates.slice(i,i+batchSize), {'Prefer':'resolution=merge-duplicates,return=minimal'});
       status.textContent = 'Updated '+Math.min(i+batchSize,updates.length)+' / '+updates.length+' price(s)...';
     }
-    const inserts = shopifyNewProducts.map(n => ({ sku: n.sku, product: n.product, category: n.category, rsp: n.rsp, available: n.available, updated_at: new Date().toISOString() }));
+    const inserts = cin7PricingNewProducts.map(n => ({ sku: n.sku, product: n.product, category: n.category, rsp: n.rsp, available: n.available, updated_at: new Date().toISOString() }));
     for(let i=0;i<inserts.length;i+=batchSize){
       await sb('POST','products', inserts.slice(i,i+batchSize), {'Prefer':'resolution=merge-duplicates,return=minimal'});
       status.textContent = 'Added '+Math.min(i+batchSize,inserts.length)+' / '+inserts.length+' new product(s)...';
     }
-    status.textContent = 'Done — '+total+' product(s) applied ('+shopifyNewProducts.length+' new). Reloading catalog...';
+    status.textContent = 'Done — '+total+' product(s) applied ('+cin7PricingNewProducts.length+' new). Reloading catalog...';
     PRODUCTS = await sbAll('products?select=*&order=product.asc');
     buildCategoryGrid();
     buildDepartmentGrid();
-    status.textContent = 'Done — '+total+' product(s) applied ('+shopifyNewProducts.length+' new).';
-    toast('Shopify pricing applied');
+    status.textContent = 'Done — '+total+' product(s) applied ('+cin7PricingNewProducts.length+' new).';
+    toast('Cin7 RSP pricing applied');
   }catch(e){
     console.error(e);
     status.textContent = 'Something went wrong partway through — re-run Preview to see what still needs updating.';
     toast('Could not finish applying updates', true);
   }
-  shopifyPricingChanges = [];
-  shopifyNewProducts = [];
-  document.getElementById('applyShopifyPricingBtn').style.display = 'none';
-  document.getElementById('shopifyPricingPreview').innerHTML = '';
+  cin7PricingChanges = [];
+  cin7PricingNewProducts = [];
+  document.getElementById('applyCin7PricingBtn').style.display = 'none';
+  document.getElementById('cin7PricingPreview').innerHTML = '';
 }
 
 // ---------------- PRODUCT PHOTOS (pulled live from the website, not a file import) ----------------
