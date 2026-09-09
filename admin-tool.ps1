@@ -112,14 +112,17 @@ if($Action -eq 'ResetPin'){
       if($u){
         $body = @{ password = $pin; email_confirm = $true } | ConvertTo-Json
         Invoke-RestMethod -Method Put -Uri "$SB_URL/auth/v1/admin/users/$($u.id)" -Headers $headers -Body $body | Out-Null
-        $action = "reset"
+        # named $resultAction, not $action — PowerShell variables are case-insensitive, so a plain
+        # $action here is literally the same variable as the -Action parameter above (List/ResetPin/
+        # Delete only), and assigning "reset"/"created" to it fails that same validation and throws
+        $resultAction = "reset"
       } else {
         $body = @{ email = $email; password = $pin; email_confirm = $true } | ConvertTo-Json
         Invoke-RestMethod -Method Post -Uri "$SB_URL/auth/v1/admin/users" -Headers $headers -Body $body | Out-Null
-        $action = "created"
+        $resultAction = "created"
       }
-      $results += [PSCustomObject]@{ Email = $email; PIN = $pin; Action = $action }
-      Write-Output ("$email -> PIN $pin [$action]")
+      $results += [PSCustomObject]@{ Email = $email; PIN = $pin; Action = $resultAction }
+      Write-Output ("$email -> PIN $pin [$resultAction]")
     } catch {
       Write-Output ("FAILED for $email - " + $_.Exception.Message)
     }
