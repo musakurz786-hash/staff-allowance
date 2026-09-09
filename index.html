@@ -1105,7 +1105,8 @@ function renderStaffTable(){
       'onblur="saveStaffBalance(\''+safeName+'\', this.value)">';
     return '<tr><td>'+escapeHtml(s.name)+'</td><td>'+emailInput+'</td><td>'+escapeHtml(s.period)+'</td><td>'+allowanceInput+'</td><td>'+balanceInput+'</td>'+
       '<td><button class="secondary" onclick="startAdminOrder(\''+safeName+'\')">Place Order</button> '+
-      '<button class="secondary" onclick="sendBalanceCopy(\''+safeName+'\')">Send Balance</button></td></tr>';
+      '<button class="secondary" onclick="sendBalanceCopy(\''+safeName+'\')">Send Balance</button> '+
+      '<button class="secondary" onclick="copyResetCommand(\''+safeName+'\')">Copy Reset Cmd</button></td></tr>';
   }).join('');
 }
 
@@ -1249,6 +1250,22 @@ async function sendBalanceCopy(name){
     console.error(e);
     toast('Could not send balance copy', true);
   }
+}
+
+// Convenience only — copies the admin-tool.ps1 command with this person's email pre-filled, so
+// Musa doesn't have to remember the syntax or retype their address. Never touches the actual
+// reset: the service_role key it needs stays exclusively in the local terminal, typed in when
+// the script prompts for it — this button can't and doesn't try to reach Supabase Auth directly.
+function copyResetCommand(name){
+  const s = staffTableRows.find(x=>x.name===name);
+  if(!s){ toast('Could not find that staff member', true); return; }
+  if(!s.email){ toast(name+' has no email on file', true); return; }
+  const cmd = '.\\admin-tool.ps1 -Action ResetPin -Emails '+s.email+' -Pins 123456';
+  navigator.clipboard.writeText(cmd).then(()=>{
+    toast('Reset command copied — paste into PowerShell');
+  }).catch(()=>{
+    toast('Could not copy to clipboard — here it is: '+cmd, true);
+  });
 }
 
 async function startNewPeriod(){
