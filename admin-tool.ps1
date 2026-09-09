@@ -99,7 +99,10 @@ if($Action -eq 'Delete'){
 }
 
 if($Action -eq 'ResetPin'){
-  $emailList = $Emails | ForEach-Object { $_.Trim().ToLower() }
+  # @(...) forces this to stay an array even with exactly one email — without it, PowerShell
+  # collapses a single-item pipeline result down to a plain string, and $emailList[0] below would
+  # then mean "the first character of that string" instead of "the first email in the list".
+  $emailList = @($Emails | ForEach-Object { $_.Trim().ToLower() })
   $results = @()
   for($i=0; $i -lt $emailList.Count; $i++){
     $email = $emailList[$i]
