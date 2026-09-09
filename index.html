@@ -138,6 +138,17 @@
         </div>
         <button class="primary" onclick="login()" id="loginBtn">Log In</button>
         <p style="font-size:12px;color:var(--grey);margin-top:16px">First time here? <a href="#" onclick="showSignup();return false;">Set up your PIN</a></p>
+        <p style="font-size:12px;color:var(--grey);margin-top:6px">Forgot your PIN? <a href="#" onclick="showForgotPin();return false;">Request a reset</a></p>
+      </div>
+
+      <div id="forgotPinFormWrap" style="display:none">
+        <div class="field">
+          <label>Your Email</label>
+          <input type="text" id="forgotPinEmail" placeholder="name@freedomofmovement.co.za" onkeydown="if(event.key==='Enter') requestPinReset()">
+        </div>
+        <button class="primary" onclick="requestPinReset()" id="forgotPinBtn">Send Reset Request</button>
+        <p style="font-size:12px;color:var(--grey);margin-top:16px">This lets Musa know you need a new PIN — he'll reset it and send you the new one directly. It's not an automatic reset.</p>
+        <p style="font-size:12px;color:var(--grey);margin-top:6px"><a href="#" onclick="showLogin();return false;">Back to log in</a></p>
       </div>
 
       <div id="signupFormWrap" style="display:none">
@@ -419,12 +430,52 @@ async function login(){
 
 function showSignup(){
   document.getElementById('loginFormWrap').style.display = 'none';
+  document.getElementById('forgotPinFormWrap').style.display = 'none';
   document.getElementById('signupFormWrap').style.display = 'block';
 }
 
 function showLogin(){
   document.getElementById('signupFormWrap').style.display = 'none';
+  document.getElementById('forgotPinFormWrap').style.display = 'none';
   document.getElementById('loginFormWrap').style.display = 'block';
+}
+
+function showForgotPin(){
+  document.getElementById('loginFormWrap').style.display = 'none';
+  document.getElementById('signupFormWrap').style.display = 'none';
+  document.getElementById('forgotPinFormWrap').style.display = 'block';
+}
+
+// Not a real automatic reset — there's no self-service way to actually change someone's PIN
+// without either emailing a reset link (the same Supabase SMTP rate limit that caused the original
+// pivot away from magic-link login in the first place) or handing the client-side app the
+// service_role key (never do this). This just notifies Musa by email so he can run
+// admin-tool.ps1 -Action ResetPin himself and pass the new PIN on directly. Uses a second,
+// independent EmailJS account/template (EMAILJS_*_2 in config.js) since Staff Allowance's main
+// EmailJS account is already at its free-tier 2-template cap — same constraint, same fix, as the
+// Stock Requests app's notification email.
+async function requestPinReset(){
+  const email = document.getElementById('forgotPinEmail').value.trim().toLowerCase();
+  if(!email){ toast('Enter your email', true); return; }
+  if(!CONFIG.EMAILJS_PUBLIC_KEY_2 || !CONFIG.EMAILJS_SERVICE_ID_2 || !CONFIG.EMAILJS_TEMPLATE_ID_PIN_RESET){
+    toast('PIN reset requests aren\'t set up yet — contact Musa directly', true);
+    return;
+  }
+  const btn = document.getElementById('forgotPinBtn');
+  btn.disabled = true; btn.textContent = 'Sending...';
+  try{
+    await emailjs.send(CONFIG.EMAILJS_SERVICE_ID_2, CONFIG.EMAILJS_TEMPLATE_ID_PIN_RESET, {
+      staff_email: email,
+      to_email: CONFIG.ADMIN_EMAIL
+    }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY_2});
+    toast('Request sent — Musa will be in touch with your new PIN shortly');
+    showLogin();
+  }catch(e){
+    console.error(e);
+    toast('Could not send the request — contact Musa directly', true);
+  }finally{
+    btn.disabled = false; btn.textContent = 'Send Reset Request';
+  }
 }
 
 // Self-service: anyone can create their own login this way (no admin step, no email sent). RLS
