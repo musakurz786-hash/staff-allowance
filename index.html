@@ -101,6 +101,17 @@
   .category-back{cursor:pointer;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--grey);display:flex;align-items:center;gap:6px;}
   .category-back:hover{color:var(--ink);}
   .category-active-label{font-size:15px;font-weight:bold;}
+
+  /* Purely decorative — sits in the empty margin beside the centered 720px column, so it only
+     ever shows up when there's genuinely spare width and never competes with the real UI. */
+  #quoteSidebar{position:fixed;top:50%;right:28px;transform:translateY(-50%);width:220px;
+    display:none;text-align:right;}
+  @media (min-width:1240px){ #quoteSidebar{display:block;} }
+  #quoteSidebar .q{font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:15px;
+    line-height:1.5;color:var(--grey);opacity:0;transition:opacity 1s ease;}
+  #quoteSidebar .q.show{opacity:1;}
+  #quoteSidebar .attr{font-family:Helvetica,Arial,sans-serif;font-style:normal;font-size:11px;
+    letter-spacing:1px;text-transform:uppercase;color:var(--brand-green);margin-top:10px;display:block;}
 </style>
 </head>
 <body>
@@ -119,6 +130,10 @@
     <button id="navLogout" onclick="logout()" style="display:none">Log out</button>
   </nav>
 </header>
+
+<div id="quoteSidebar">
+  <div class="q" id="quoteText"></div>
+</div>
 
 <main>
 
@@ -2172,6 +2187,41 @@ function exportDiscountReportCsv(){
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = 'staff-discount-report.csv'; a.click();
 }
+
+// Purely decorative side quotes — no data, no config, nothing to break. Runs independent of
+// login state since #quoteSidebar sits outside <main> in the markup.
+const QUOTES = [
+  { q: 'The secret of getting ahead is getting started.', a: 'Mark Twain' },
+  { q: 'Small steps every day lead to big changes.', a: '' },
+  { q: 'Movement is the only cure for stagnation.', a: '' },
+  { q: 'Progress, not perfection.', a: '' },
+  { q: "Every journey begins with a single step.", a: '' },
+  { q: 'Discipline is choosing what you want most over what you want right now.', a: '' },
+  { q: 'The best view comes after the hardest climb.', a: '' },
+  { q: "You don't have to be great to start, but you have to start to be great.", a: 'Zig Ziglar' },
+  { q: 'Keep moving forward.', a: '' },
+  { q: 'Freedom is doing what you love, unapologetically.', a: '' }
+];
+function startQuoteRotation(){
+  const el = document.getElementById('quoteText');
+  if(!el) return;
+  let i = Math.floor(Math.random() * QUOTES.length);
+  function render(){
+    const item = QUOTES[i];
+    el.innerHTML = escapeHtml(item.q) + (item.a ? '<span class="attr">'+escapeHtml(item.a)+'</span>' : '');
+  }
+  render();
+  requestAnimationFrame(() => el.classList.add('show'));
+  setInterval(() => {
+    el.classList.remove('show');
+    setTimeout(() => {
+      i = (i + 1) % QUOTES.length;
+      render();
+      el.classList.add('show');
+    }, 1000); // matches the 1s CSS fade duration
+  }, 9000);
+}
+startQuoteRotation();
 
 boot();
 </script>
