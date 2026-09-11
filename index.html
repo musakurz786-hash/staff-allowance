@@ -90,9 +90,17 @@
 
   .trail-banner-wrap{position:relative;margin-bottom:20px;}
   .trail-banner{width:100%;height:120px;border-radius:16px;overflow:hidden;display:block;}
-  .trail-banner-logo{position:absolute;left:14px;bottom:14px;background:rgba(255,255,255,.9);
-    border-radius:10px;padding:8px 12px;box-shadow:var(--shadow-rest);}
-  .trail-banner-logo img{height:20px;display:block;}
+  .trail-banner-scrim{position:absolute;inset:0;background:rgba(42,46,32,.34);border-radius:16px;}
+  .trail-banner-brand{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;text-align:center;color:#fff;}
+  .trail-banner-icon{height:30px;margin-bottom:6px;filter:brightness(0) invert(1);}
+  .trail-banner-title{font-size:17px;font-weight:bold;letter-spacing:2.5px;text-transform:uppercase;}
+  .trail-banner-tag{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;opacity:.85;margin-top:4px;}
+
+  /* Faint, fixed, never interactive — a background texture behind the whole app, not a UI element */
+  #pageWatermark{position:fixed;bottom:-70px;right:-70px;width:420px;height:420px;opacity:.05;
+    pointer-events:none;z-index:-1;}
+  #pageWatermark img{width:100%;height:100%;object-fit:contain;}
 
   .category-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;margin-bottom:26px;}
   .category-tile{background:var(--cat-tint,var(--panel));border:none;border-radius:14px;
@@ -176,6 +184,10 @@
   </nav>
 </header>
 
+<div id="pageWatermark">
+  <img src="https://www.freedomofmovement.co.za/cdn/shop/files/favicon.png?v=1760790002&width=400" alt="">
+</div>
+
 <div id="quoteSidebar">
   <div class="q" id="quoteText"></div>
 </div>
@@ -242,8 +254,11 @@
           <circle cx="360" cy="35" r="18" fill="#F2D98A"/>
           <path d="M0 100 Q 224 70 448 100" stroke="#C9B892" stroke-width="10" fill="none"/>
         </svg>
-        <div class="trail-banner-logo">
-          <img src="https://www.freedomofmovement.co.za/cdn/shop/files/FOM_4a277dc0-1749-4e5c-92ce-3fccd1ec7e55.png?v=1760905009&width=200" alt="Freedom of Movement">
+        <div class="trail-banner-scrim"></div>
+        <div class="trail-banner-brand">
+          <img src="https://www.freedomofmovement.co.za/cdn/shop/files/favicon.png?v=1760790002&width=80" alt="" class="trail-banner-icon">
+          <div class="trail-banner-title">Freedom of movement</div>
+          <div class="trail-banner-tag">Stay free &amp; keep moving</div>
         </div>
       </div>
 
