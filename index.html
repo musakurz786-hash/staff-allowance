@@ -82,8 +82,18 @@
   table.admin{width:100%;border-collapse:collapse;font-size:13px;}
   table.admin th,table.admin td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);}
   table.admin th{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--grey);}
-  .admin-section{margin-bottom:40px;padding-bottom:32px;border-bottom:1px solid var(--line);}
-  .admin-section:last-child{border-bottom:none;}
+  .admin-section{margin-bottom:14px;border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden;}
+  .admin-section summary{cursor:pointer;padding:16px 18px;font-size:13px;letter-spacing:2px;text-transform:uppercase;
+    color:var(--ink);font-weight:bold;list-style:none;display:flex;justify-content:space-between;align-items:center;}
+  .admin-section summary::-webkit-details-marker{display:none;}
+  .admin-section summary::after{content:'\2304';font-size:16px;color:var(--grey);transition:transform .2s ease;}
+  .admin-section[open] summary::after{transform:rotate(180deg);}
+  .admin-section summary:hover{background:var(--panel);}
+  .admin-section .admin-section-body{padding:0 18px 20px;}
+  .spend-bar-row{margin-bottom:10px;}
+  .spend-bar-label{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;}
+  .spend-bar-track{background:var(--panel);border-radius:6px;height:8px;overflow:hidden;}
+  .spend-bar-fill{height:100%;border-radius:6px;background:var(--brand-green);}
   .row-flex{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
   .row-flex .field{flex:1;min-width:140px;margin-bottom:0;}
   .lock{max-width:320px;margin:80px auto;text-align:center;}
@@ -329,116 +339,159 @@
   <div id="view-admin" class="view">
     <div id="adminBody">
 
-      <div class="admin-section">
-        <h2>Import Daily Stock Report</h2>
-        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Upload the "Inventory Products Stock Level Report" export (.xlsx/.csv). Matches by SKU and updates stock/RSP for existing products; new SKUs are added.</p>
-        <input type="file" id="stockFile" accept=".xlsx,.xls,.csv">
-        <button class="secondary" style="margin-top:10px" onclick="importStockFile()">Import</button>
-        <div id="importStatus" style="font-size:13px;margin-top:10px;color:var(--grey)"></div>
-      </div>
-
-      <div class="admin-section">
-        <h2>Import Allowance Tracker (Balances)</h2>
-        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Upload the Staff Allowance Tracker .xlsx (its "Summary" sheet). Shows exactly who would change before touching anything — nothing is saved until you click Apply.</p>
-        <input type="file" id="allowanceFile" accept=".xlsx,.xls">
-        <button class="secondary" style="margin-top:10px" onclick="previewAllowanceImport()">Preview Changes</button>
-        <div id="allowanceImportStatus" style="font-size:13px;margin-top:10px;color:var(--grey)"></div>
-        <div id="allowancePreview" style="margin-top:10px;overflow-x:auto"></div>
-        <button class="primary" id="applyAllowanceBtn" style="display:none" onclick="applyAllowanceImport()">Apply Updates</button>
-      </div>
-
-      <div class="admin-section">
-        <h2>Edit Product Pricing</h2>
-        <p style="font-size:13px;color:var(--grey);margin-top:-8px">For items on sale on the website but not in the ERP price list — search a product and update its price here.</p>
-        <input type="text" id="priceSearch" placeholder="Search by product name or SKU..." oninput="onPriceSearch()">
-        <div id="priceResults" class="results" style="display:none;margin-top:10px"></div>
-      </div>
-
-      <div class="admin-section">
-        <h2>Import Cin7 RSP Pricing</h2>
-        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Upload Cin7's "Products Price List" export (.xlsx). Matches by SKU and updates RSP only, from the real ERP price — not the website's, which can be a markdown or simply unpublished. Stock stays exclusively sourced from the Cin7 stock report; genuinely new SKUs found here are still added (stock starts at 0 until the next stock import picks them up). Promo/bundle/shipping/gift-card rows in this export are automatically skipped.</p>
-        <input type="file" id="cin7PricingFile" accept=".xlsx,.xls,.csv">
-        <button class="secondary" style="margin-top:10px" onclick="previewCin7Pricing()">Preview Changes</button>
-        <div id="cin7PricingStatus" style="font-size:13px;margin-top:10px;color:var(--grey)"></div>
-        <div id="cin7PricingPreview" style="margin-top:10px;overflow-x:auto;max-height:400px;overflow-y:auto"></div>
-        <button class="primary" id="applyCin7PricingBtn" style="display:none" onclick="applyCin7Pricing()">Apply Updates</button>
-      </div>
-
-      <div class="admin-section">
-        <h2>Import Product Photos</h2>
-        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Pulls real photos straight from freedomofmovement.co.za's public product feed and matches them to your catalog by SKU — no file to export or upload. Only products currently live on the website will have a photo available; anything else keeps its category icon on the order screen.</p>
-        <button class="secondary" style="margin-top:10px" onclick="previewPhotoImport()">Fetch &amp; Preview</button>
-        <div id="photoImportStatus" style="font-size:13px;margin-top:10px;color:var(--grey)"></div>
-        <div id="photoImportPreview" style="margin-top:10px;overflow-x:auto;max-height:400px;overflow-y:auto"></div>
-        <button class="primary" id="applyPhotoImportBtn" style="display:none" onclick="applyPhotoImport()">Apply Photos</button>
-      </div>
-
-      <div class="admin-section">
-        <h2>Import Sale Pricing (Live from Website)</h2>
-        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Pulls the same live product feed as Import Product Photos and finds every SKU where the site's price undercuts its "compare at" price — i.e. genuinely on sale right now — and matches it to your catalog by SKU. Overwrites RSP directly, same as the Cin7 pricing import — meaning a later Cin7 import will silently reset it back to full price once the sale ends there too, which is the expected order of operations.</p>
-        <button class="secondary" style="margin-top:10px" onclick="previewLiveSalePricing()">Fetch &amp; Preview</button>
-        <div id="liveSalePricingStatus" style="font-size:13px;margin-top:10px;color:var(--grey)"></div>
-        <div id="liveSalePricingPreview" style="margin-top:10px;overflow-x:auto;max-height:400px;overflow-y:auto"></div>
-        <button class="primary" id="applyLiveSalePricingBtn" style="display:none" onclick="applyLiveSalePricing()">Apply Updates</button>
-      </div>
-
-      <div class="admin-section">
-        <h2>Import Sale Pricing (Markdown, manual paste)</h2>
-        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Fallback for a sale that isn't reflected on the website yet, or a one-off list. Paste rows as <strong>Style [tab] Discount% [tab] MD RSP</strong>, one per line. Matches by exact product name, which is less reliable than the live import above — use that instead when the sale is already live on the site.</p>
-        <textarea id="salePricingInput" rows="8" style="width:100%;font-family:monospace;font-size:12px;padding:10px;border:1px solid #ccc;border-radius:3px" placeholder="Ladies Barrel Denim - Indigo&#9;60%&#9;518.00"></textarea>
-        <button class="secondary" style="margin-top:10px" onclick="previewSalePricing()">Preview Changes</button>
-        <div id="salePricingStatus" style="font-size:13px;margin-top:10px;color:var(--grey)"></div>
-        <div id="salePricingPreview" style="margin-top:10px;overflow-x:auto"></div>
-        <button class="primary" id="applySalePricingBtn" style="display:none" onclick="applySalePricing()">Apply Updates</button>
-      </div>
-
-      <div class="admin-section">
-        <h2>Staff Allowance Periods</h2>
-        <div class="row-flex" style="margin-bottom:14px">
-          <div class="field"><label>New Period Label (e.g. 2027)</label><input type="text" id="newPeriod"></div>
-          <button class="secondary" onclick="startNewPeriod()">Reset All Balances For New Period</button>
+      <details class="admin-section" open>
+        <summary>Spend Overview</summary>
+        <div class="admin-section-body">
+          <p style="font-size:13px;color:var(--grey);margin-top:-8px">Current period (<span id="spendPeriodLabel"></span>) — orders placed through the app only, not historical backfilled rows.</p>
+          <button class="secondary" onclick="loadSpendOverview()">Refresh</button>
+          <div id="spendOverviewBody" style="margin-top:14px"></div>
         </div>
-        <div class="row-flex" style="margin-bottom:14px">
-          <div class="field"><label>Add Staff — Name</label><input type="text" id="newStaffName"></div>
-          <div class="field"><label>Email (optional)</label><input type="text" id="newStaffEmail"></div>
-          <div class="field"><label>Allowance (0 for discount-only staff)</label><input type="number" id="newStaffAllowance" value="0"></div>
-          <button class="secondary" onclick="addStaff()">Add</button>
+      </details>
+
+      <details class="admin-section" open>
+        <summary>Staff Allowance Periods</summary>
+        <div class="admin-section-body">
+          <div class="row-flex" style="margin-bottom:14px">
+            <div class="field"><label>New Period Label (e.g. 2027)</label><input type="text" id="newPeriod"></div>
+            <button class="secondary" onclick="startNewPeriod()">Reset All Balances For New Period</button>
+          </div>
+          <div class="row-flex" style="margin-bottom:14px">
+            <div class="field"><label>Add Staff — Name</label><input type="text" id="newStaffName"></div>
+            <div class="field"><label>Email (optional)</label><input type="text" id="newStaffEmail"></div>
+            <div class="field"><label>Allowance (0 for discount-only staff)</label><input type="number" id="newStaffAllowance" value="0"></div>
+            <button class="secondary" onclick="addStaff()">Add</button>
+          </div>
+          <div class="field"><label>Search Staff</label><input type="text" id="staffSearch" placeholder="Filter by name or email..." oninput="renderStaffTable()"></div>
+          <table class="admin" id="staffTable"><thead><tr><th>Name</th><th>Email</th><th>Period</th><th>Allowance</th><th>Balance</th><th></th></tr></thead><tbody></tbody></table>
         </div>
-        <div class="field"><label>Search Staff</label><input type="text" id="staffSearch" placeholder="Filter by name or email..." oninput="renderStaffTable()"></div>
-        <table class="admin" id="staffTable"><thead><tr><th>Name</th><th>Email</th><th>Period</th><th>Allowance</th><th>Balance</th><th></th></tr></thead><tbody></tbody></table>
-      </div>
+      </details>
 
-      <div class="admin-section">
-        <h2>Change History</h2>
-        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Every manual allowance/balance edit, bulk import, or period reset — who changed it, when, and what it was before. Order-driven balance changes aren't logged here since they already show up in Order History.</p>
-        <button class="secondary" onclick="loadAuditLog()">Refresh</button>
-        <table class="admin" id="auditTable" style="margin-top:14px">
-          <thead><tr><th>Date</th><th>Staff</th><th>Field</th><th>Before</th><th>After</th><th>Source</th><th>By</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
+      <details class="admin-section">
+        <summary>Import Daily Stock Report</summary>
+        <div class="admin-section-body">
+          <p style="font-size:13px;color:var(--grey);margin-top:-8px">Upload the "Inventory Products Stock Level Report" export (.xlsx/.csv). Matches by SKU and updates stock/RSP for existing products; new SKUs are added.</p>
+          <input type="file" id="stockFile" accept=".xlsx,.xls,.csv">
+          <button class="secondary" style="margin-top:10px" onclick="importStockFile()">Import</button>
+          <div id="importStatus" style="font-size:13px;margin-top:10px;color:var(--grey)"></div>
+        </div>
+      </details>
 
-      <div class="admin-section">
-        <h2>Staff Discount Report (for ERP Invoicing)</h2>
-        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Shows RSP and the <span id="discountPctLabel"></span>% discount amount for every staff-discount order, so it can be invoiced against stock in the ERP.</p>
-        <button class="secondary" onclick="loadDiscountReport()">Refresh Report</button>
-        <button class="secondary" onclick="exportDiscountReportCsv()">Export CSV</button>
-        <table class="admin" id="discountTable" style="margin-top:14px">
-          <thead><tr><th>Date</th><th>Staff</th><th>Product</th><th>Qty</th><th>RSP</th><th>Discount</th><th>Payable</th><th>Cin7 Invoice</th><th></th></tr></thead>
-          <tbody></tbody>
-        </table>
-        <div id="discountTotals" style="margin-top:10px;font-size:13px;font-weight:bold"></div>
-      </div>
+      <details class="admin-section">
+        <summary>Import Allowance Tracker (Balances)</summary>
+        <div class="admin-section-body">
+          <p style="font-size:13px;color:var(--grey);margin-top:-8px">Upload the Staff Allowance Tracker .xlsx (its "Summary" sheet). Shows exactly who would change before touching anything — nothing is saved until you click Apply.</p>
+          <input type="file" id="allowanceFile" accept=".xlsx,.xls">
+          <button class="secondary" style="margin-top:10px" onclick="previewAllowanceImport()">Preview Changes</button>
+          <div id="allowanceImportStatus" style="font-size:13px;margin-top:10px;color:var(--grey)"></div>
+          <div id="allowancePreview" style="margin-top:10px;overflow-x:auto"></div>
+          <button class="primary" id="applyAllowanceBtn" style="display:none" onclick="applyAllowanceImport()">Apply Updates</button>
+        </div>
+      </details>
 
-      <div class="admin-section">
-        <h2>Order History (Cancel / Exchange)</h2>
-        <p style="font-size:13px;color:var(--grey);margin-top:-8px">Cancelling an order deletes it and, for Staff Allowance orders, automatically refunds the amount to that person's balance. For an exchange, cancel the wrong item then have them place a new order.</p>
-        <button class="secondary" onclick="loadOrderHistory()">Refresh</button>
-        <table class="admin" id="historyTable">
-          <thead><tr><th>Date</th><th>Staff</th><th>Product</th><th>Qty</th><th>Type</th><th>Amount</th><th>Cin7 Invoice</th><th></th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
+      <details class="admin-section">
+        <summary>Edit Product Pricing</summary>
+        <div class="admin-section-body">
+          <p style="font-size:13px;color:var(--grey);margin-top:-8px">For items on sale on the website but not in the ERP price list — search a product and update its price here.</p>
+          <input type="text" id="priceSearch" placeholder="Search by product name or SKU..." oninput="onPriceSearch()">
+          <div id="priceResults" class="results" style="display:none;margin-top:10px"></div>
+        </div>
+      </details>
+
+      <details class="admin-section">
+        <summary>Import Cin7 RSP Pricing</summary>
+        <div class="admin-section-body">
+          <p style="font-size:13px;color:var(--grey);margin-top:-8px">Upload Cin7's "Products Price List" export (.xlsx). Matches by SKU and updates RSP only, from the real ERP price — not the website's, which can be a markdown or simply unpublished. Stock stays exclusively sourced from the Cin7 stock report; genuinely new SKUs found here are still added (stock starts at 0 until the next stock import picks them up). Promo/bundle/shipping/gift-card rows in this export are automatically skipped.</p>
+          <input type="file" id="cin7PricingFile" accept=".xlsx,.xls,.csv">
+          <button class="secondary" style="margin-top:10px" onclick="previewCin7Pricing()">Preview Changes</button>
+          <div id="cin7PricingStatus" style="font-size:13px;margin-top:10px;color:var(--grey)"></div>
+          <div id="cin7PricingPreview" style="margin-top:10px;overflow-x:auto;max-height:400px;overflow-y:auto"></div>
+          <button class="primary" id="applyCin7PricingBtn" style="display:none" onclick="applyCin7Pricing()">Apply Updates</button>
+        </div>
+      </details>
+
+      <details class="admin-section">
+        <summary>Import Product Photos</summary>
+        <div class="admin-section-body">
+          <p style="font-size:13px;color:var(--grey);margin-top:-8px">Pulls real photos straight from freedomofmovement.co.za's public product feed and matches them to your catalog by SKU — no file to export or upload. Only products currently live on the website will have a photo available; anything else keeps its category icon on the order screen.</p>
+          <button class="secondary" style="margin-top:10px" onclick="previewPhotoImport()">Fetch &amp; Preview</button>
+          <div id="photoImportStatus" style="font-size:13px;margin-top:10px;color:var(--grey)"></div>
+          <div id="photoImportPreview" style="margin-top:10px;overflow-x:auto;max-height:400px;overflow-y:auto"></div>
+          <button class="primary" id="applyPhotoImportBtn" style="display:none" onclick="applyPhotoImport()">Apply Photos</button>
+        </div>
+      </details>
+
+      <details class="admin-section" open>
+        <summary>Photo Sync Status</summary>
+        <div class="admin-section-body">
+          <p style="font-size:13px;color:var(--grey);margin-top:-8px">The daily automatic photo sync (pg_cron, runs at 05:00 SAST) logs every run here — this is how you check it's actually working without writing SQL.</p>
+          <button class="secondary" onclick="loadPhotoSyncStatus()">Refresh</button>
+          <table class="admin" id="photoSyncTable" style="margin-top:14px">
+            <thead><tr><th>Run</th><th>Pages</th><th>Updated</th><th>Status</th><th>Detail</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="admin-section">
+        <summary>Import Sale Pricing (Live from Website)</summary>
+        <div class="admin-section-body">
+          <p style="font-size:13px;color:var(--grey);margin-top:-8px">Pulls the same live product feed as Import Product Photos and finds every SKU where the site's price undercuts its "compare at" price — i.e. genuinely on sale right now — and matches it to your catalog by SKU. Overwrites RSP directly, same as the Cin7 pricing import — meaning a later Cin7 import will silently reset it back to full price once the sale ends there too, which is the expected order of operations.</p>
+          <button class="secondary" style="margin-top:10px" onclick="previewLiveSalePricing()">Fetch &amp; Preview</button>
+          <div id="liveSalePricingStatus" style="font-size:13px;margin-top:10px;color:var(--grey)"></div>
+          <div id="liveSalePricingPreview" style="margin-top:10px;overflow-x:auto;max-height:400px;overflow-y:auto"></div>
+          <button class="primary" id="applyLiveSalePricingBtn" style="display:none" onclick="applyLiveSalePricing()">Apply Updates</button>
+        </div>
+      </details>
+
+      <details class="admin-section">
+        <summary>Import Sale Pricing (Markdown, manual paste)</summary>
+        <div class="admin-section-body">
+          <p style="font-size:13px;color:var(--grey);margin-top:-8px">Fallback for a sale that isn't reflected on the website yet, or a one-off list. Paste rows as <strong>Style [tab] Discount% [tab] MD RSP</strong>, one per line. Matches by exact product name, which is less reliable than the live import above — use that instead when the sale is already live on the site.</p>
+          <textarea id="salePricingInput" rows="8" style="width:100%;font-family:monospace;font-size:12px;padding:10px;border:1px solid #ccc;border-radius:3px" placeholder="Ladies Barrel Denim - Indigo&#9;60%&#9;518.00"></textarea>
+          <button class="secondary" style="margin-top:10px" onclick="previewSalePricing()">Preview Changes</button>
+          <div id="salePricingStatus" style="font-size:13px;margin-top:10px;color:var(--grey)"></div>
+          <div id="salePricingPreview" style="margin-top:10px;overflow-x:auto"></div>
+          <button class="primary" id="applySalePricingBtn" style="display:none" onclick="applySalePricing()">Apply Updates</button>
+        </div>
+      </details>
+
+      <details class="admin-section">
+        <summary>Change History</summary>
+        <div class="admin-section-body">
+          <p style="font-size:13px;color:var(--grey);margin-top:-8px">Every manual allowance/balance edit, bulk import, or period reset — who changed it, when, and what it was before. Order-driven balance changes aren't logged here since they already show up in Order History.</p>
+          <button class="secondary" onclick="loadAuditLog()">Refresh</button>
+          <table class="admin" id="auditTable" style="margin-top:14px">
+            <thead><tr><th>Date</th><th>Staff</th><th>Field</th><th>Before</th><th>After</th><th>Source</th><th>By</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="admin-section">
+        <summary>Staff Discount Report (for ERP Invoicing)</summary>
+        <div class="admin-section-body">
+          <p style="font-size:13px;color:var(--grey);margin-top:-8px">Shows RSP and the <span id="discountPctLabel"></span>% discount amount for every staff-discount order, so it can be invoiced against stock in the ERP.</p>
+          <button class="secondary" onclick="loadDiscountReport()">Refresh Report</button>
+          <button class="secondary" onclick="exportDiscountReportCsv()">Export CSV</button>
+          <table class="admin" id="discountTable" style="margin-top:14px">
+            <thead><tr><th>Date</th><th>Staff</th><th>Product</th><th>Qty</th><th>RSP</th><th>Discount</th><th>Payable</th><th>Cin7 Invoice</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <div id="discountTotals" style="margin-top:10px;font-size:13px;font-weight:bold"></div>
+        </div>
+      </details>
+
+      <details class="admin-section">
+        <summary>Order History (Cancel / Exchange)</summary>
+        <div class="admin-section-body">
+          <p style="font-size:13px;color:var(--grey);margin-top:-8px">Cancelling an order deletes it and, for Staff Allowance orders, automatically refunds the amount to that person's balance. For an exchange, cancel the wrong item then have them place a new order.</p>
+          <button class="secondary" onclick="loadOrderHistory()">Refresh</button>
+          <table class="admin" id="historyTable">
+            <thead><tr><th>Date</th><th>Staff</th><th>Product</th><th>Qty</th><th>Type</th><th>Amount</th><th>Cin7 Invoice</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </details>
 
     </div>
   </div>
@@ -1269,6 +1322,90 @@ function showAdminBody(){
   loadAuditLog();
   loadDiscountReport();
   loadOrderHistory();
+  loadPhotoSyncStatus();
+  loadSpendOverview();
+}
+
+async function loadPhotoSyncStatus(){
+  const tbody = document.querySelector('#photoSyncTable tbody');
+  try{
+    const rows = await sb('GET','photo_sync_log?select=*&order=run_at.desc&limit=10');
+    if(!rows.length){ tbody.innerHTML = '<tr><td colspan="5" class="empty">No runs logged yet — check the cron job is scheduled (select * from cron.job;)</td></tr>'; return; }
+    tbody.innerHTML = rows.map(r=>{
+      const statusColor = r.status === 'ok' ? 'var(--good)' : 'var(--bad)';
+      return '<tr><td>'+new Date(r.run_at).toLocaleString('en-ZA')+'</td><td>'+r.pages_fetched+'</td><td>'+r.updated_count+'</td>'+
+        '<td style="color:'+statusColor+';font-weight:bold;text-transform:uppercase;font-size:11px">'+escapeHtml(r.status)+'</td>'+
+        '<td style="font-size:11px;color:var(--grey)">'+escapeHtml(r.detail||'')+'</td></tr>';
+    }).join('');
+  }catch(e){
+    console.error(e);
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">Could not load — has photo-sync-cron-migration.sql been run?</td></tr>';
+  }
+}
+
+// Client-side aggregation, same pattern as buildAllowanceSummary() elsewhere — no SQL views
+// needed for a report this simple. Fetches products fresh (not the cached PRODUCTS global, which
+// may be empty if admin never visited the Order tab this session) purely for the category lookup.
+async function loadSpendOverview(){
+  document.getElementById('spendPeriodLabel').textContent = CONFIG.CURRENT_PERIOD;
+  const body = document.getElementById('spendOverviewBody');
+  body.innerHTML = '<p style="font-size:13px;color:var(--grey)">Loading...</p>';
+  try{
+    const [orders, products] = await Promise.all([
+      sb('GET','orders?select=sku,amount,order_type,created_at&period=eq.'+encodeURIComponent(CONFIG.CURRENT_PERIOD)),
+      sb('GET','products?select=sku,category')
+    ]);
+    if(!orders.length){ body.innerHTML = '<p style="font-size:13px;color:var(--grey)">No orders yet this period.</p>'; return; }
+
+    const categoryBySku = {};
+    products.forEach(p => categoryBySku[p.sku] = p.category || 'Other');
+
+    const totalSpent = orders.reduce((s,o) => s+Number(o.amount), 0);
+
+    const byCategory = {};
+    orders.forEach(o => {
+      const cat = categoryBySku[o.sku] || 'Other';
+      byCategory[cat] = (byCategory[cat]||0) + Number(o.amount);
+    });
+    const topCategories = Object.entries(byCategory).sort((a,b)=>b[1]-a[1]).slice(0,6);
+
+    const byMonth = {};
+    orders.forEach(o => {
+      const d = new Date(o.created_at);
+      const key = d.toLocaleDateString('en-ZA', {year:'numeric', month:'short'});
+      byMonth[key] = (byMonth[key]||0) + Number(o.amount);
+    });
+    // chronological, not alphabetical — rebuild sort key from the same date parsing
+    const monthEntries = Object.entries(byMonth).map(([label, total]) => {
+      const sampleOrder = orders.find(o => new Date(o.created_at).toLocaleDateString('en-ZA', {year:'numeric', month:'short'}) === label);
+      return { label, total, sortKey: sampleOrder ? new Date(sampleOrder.created_at).getFullYear()*12 + new Date(sampleOrder.created_at).getMonth() : 0 };
+    }).sort((a,b)=>a.sortKey-b.sortKey);
+
+    const maxCat = Math.max(...topCategories.map(c=>c[1]), 1);
+    const maxMonth = Math.max(...monthEntries.map(m=>m.total), 1);
+
+    let html = '<div class="row-flex" style="margin-bottom:20px">'+
+      '<div class="field" style="margin-bottom:0"><label>Orders</label><div style="font-size:20px;font-weight:bold">'+orders.length+'</div></div>'+
+      '<div class="field" style="margin-bottom:0"><label>Total spent</label><div style="font-size:20px;font-weight:bold">R'+money(totalSpent)+'</div></div>'+
+    '</div>';
+
+    html += '<div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--grey);margin-bottom:8px">Top categories</div>';
+    topCategories.forEach(([cat, total]) => {
+      html += '<div class="spend-bar-row"><div class="spend-bar-label"><span>'+escapeHtml(cat)+'</span><span>R'+money(total)+'</span></div>'+
+        '<div class="spend-bar-track"><div class="spend-bar-fill" style="width:'+Math.round(total/maxCat*100)+'%"></div></div></div>';
+    });
+
+    html += '<div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--grey);margin:18px 0 8px">Spend by month</div>';
+    monthEntries.forEach(m => {
+      html += '<div class="spend-bar-row"><div class="spend-bar-label"><span>'+escapeHtml(m.label)+'</span><span>R'+money(m.total)+'</span></div>'+
+        '<div class="spend-bar-track"><div class="spend-bar-fill" style="width:'+Math.round(m.total/maxMonth*100)+'%"></div></div></div>';
+    });
+
+    body.innerHTML = html;
+  }catch(e){
+    console.error(e);
+    body.innerHTML = '<p style="font-size:13px;color:var(--bad)">Could not load spend overview.</p>';
+  }
 }
 
 let staffTableRows = [];
