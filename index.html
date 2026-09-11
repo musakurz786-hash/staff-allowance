@@ -88,7 +88,11 @@
   .row-flex .field{flex:1;min-width:140px;margin-bottom:0;}
   .lock{max-width:320px;margin:80px auto;text-align:center;}
 
-  .trail-banner{width:100%;height:120px;border-radius:16px;overflow:hidden;margin-bottom:20px;display:block;}
+  .trail-banner-wrap{position:relative;margin-bottom:20px;}
+  .trail-banner{width:100%;height:120px;border-radius:16px;overflow:hidden;display:block;}
+  .trail-banner-logo{position:absolute;left:14px;bottom:14px;background:rgba(255,255,255,.9);
+    border-radius:10px;padding:8px 12px;box-shadow:var(--shadow-rest);}
+  .trail-banner-logo img{height:20px;display:block;}
 
   .category-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;margin-bottom:26px;}
   .category-tile{background:var(--cat-tint,var(--panel));border:none;border-radius:14px;
@@ -229,14 +233,19 @@
     </div>
 
     <div id="orderContent" style="display:none">
-      <svg class="trail-banner" viewBox="0 0 448 120" preserveAspectRatio="xMidYMid slice">
-        <rect width="448" height="120" fill="#DCE3C7"/>
-        <rect x="0" y="70" width="448" height="50" fill="#9CAE7C"/>
-        <polygon points="60,90 130,30 200,90" fill="#7C9A5C"/>
-        <polygon points="150,90 230,45 310,90" fill="#6E8C52"/>
-        <circle cx="360" cy="35" r="18" fill="#F2D98A"/>
-        <path d="M0 100 Q 224 70 448 100" stroke="#C9B892" stroke-width="10" fill="none"/>
-      </svg>
+      <div class="trail-banner-wrap">
+        <svg class="trail-banner" viewBox="0 0 448 120" preserveAspectRatio="xMidYMid slice">
+          <rect width="448" height="120" fill="#DCE3C7"/>
+          <rect x="0" y="70" width="448" height="50" fill="#9CAE7C"/>
+          <polygon points="60,90 130,30 200,90" fill="#7C9A5C"/>
+          <polygon points="150,90 230,45 310,90" fill="#6E8C52"/>
+          <circle cx="360" cy="35" r="18" fill="#F2D98A"/>
+          <path d="M0 100 Q 224 70 448 100" stroke="#C9B892" stroke-width="10" fill="none"/>
+        </svg>
+        <div class="trail-banner-logo">
+          <img src="https://www.freedomofmovement.co.za/cdn/shop/files/FOM_4a277dc0-1749-4e5c-92ce-3fccd1ec7e55.png?v=1760905009&width=200" alt="Freedom of Movement">
+        </div>
+      </div>
 
       <div id="balanceCard" class="balance-card" style="display:none">
         <div class="stat" style="--stat-color:#2C5F8A;--stat-tint:#E1EBF3"><div class="label">Annual Allowance</div><div class="value" id="balAllowance">R0</div></div>
