@@ -6,33 +6,34 @@
 <title>FOM Staff Allowance & Discount Portal</title>
 <style>
   :root{
-    --ink:#1c1c1c; --grey:#8a8a8a; --panel:#f5f5f5; --line:#e5e5e5; --good:#2e7d32; --bad:#c0392b; --brand-green:#6E8C52;
+    --ink:#3A3F2E; --grey:#7A8066; --panel:#EFEAD9; --line:#E3DDC8; --good:#2e7d32; --bad:#c0392b; --brand-green:#6E8C52;
+    --cream:#F4F1E9; --shadow-rest:0 2px 8px rgba(58,63,46,.07); --shadow-hover:0 10px 20px rgba(58,63,46,.14);
   }
   *{box-sizing:border-box;}
-  body{font-family:Helvetica,Arial,sans-serif;color:var(--ink);background:#fff;margin:0;}
+  body{font-family:Helvetica,Arial,sans-serif;color:var(--ink);background:var(--cream);margin:0;}
   header{background:var(--brand-green);color:var(--ink);padding:18px 24px;display:flex;align-items:center;justify-content:space-between;}
   header .brand{font-size:13px;letter-spacing:3px;text-transform:uppercase;font-weight:bold;}
   header nav{display:flex;gap:8px;flex-wrap:wrap;}
-  header nav button{background:#fff;border:2px solid var(--ink);color:var(--ink);padding:9px 18px;font-size:12px;font-weight:bold;
-    letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:5px;box-shadow:0 2px 0 rgba(28,28,28,.35);
-    transition:transform .12s ease,box-shadow .12s ease;}
-  header nav button:hover{transform:translateY(-1px);box-shadow:0 3px 0 rgba(28,28,28,.4);}
-  header nav button:active{transform:translateY(1px);box-shadow:0 1px 0 rgba(28,28,28,.35);}
-  header nav button.active{background:var(--ink);color:#fff;border-color:var(--ink);box-shadow:0 2px 0 rgba(0,0,0,.5);}
+  header nav button{background:rgba(255,255,255,.55);border:none;color:var(--ink);padding:9px 18px;font-size:12px;font-weight:bold;
+    letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:20px;box-shadow:var(--shadow-rest);
+    transition:transform .15s ease,box-shadow .15s ease,background .15s ease;}
+  header nav button:hover{transform:translateY(-1px);box-shadow:var(--shadow-hover);background:rgba(255,255,255,.8);}
+  header nav button.active{background:var(--ink);color:var(--cream);box-shadow:var(--shadow-hover);}
   main{max-width:720px;margin:0 auto;padding:28px 20px 80px;}
   .view{display:none;}
   .view.active{display:block;}
   label{display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--grey);margin-bottom:6px;}
   select,input[type=text],input[type=number],input[type=file],input[type=password]{
-    width:100%;padding:11px 12px;font-size:14px;border:1px solid #ccc;border-radius:3px;font-family:inherit;background:#fff;color:var(--ink);
+    width:100%;padding:11px 12px;font-size:14px;border:1px solid var(--line);border-radius:10px;font-family:inherit;background:#fff;color:var(--ink);
   }
   .field{margin-bottom:18px;}
   .balance-card{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;}
-  .balance-card .stat{flex:1;min-width:120px;background:var(--stat-tint,var(--panel));border:2px solid var(--stat-color,var(--brand-green));
-    border-radius:10px;padding:14px 18px;box-shadow:0 3px 0 var(--stat-color,var(--brand-green));}
+  .balance-card .stat{flex:1;min-width:120px;background:var(--stat-tint,var(--panel));border:none;
+    border-radius:14px;padding:14px 18px;box-shadow:var(--shadow-rest);transition:box-shadow .2s ease,transform .2s ease;}
+  .balance-card .stat:hover{box-shadow:var(--shadow-hover);transform:translateY(-2px);}
   .balance-card .label{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--grey);margin-bottom:6px;}
   .balance-card .value{font-size:20px;font-weight:bold;color:var(--ink);}
-  .results{border:1px solid var(--line);border-radius:4px;max-height:360px;overflow:auto;margin-bottom:20px;}
+  .results{border:1px solid var(--line);border-radius:10px;max-height:360px;overflow:auto;margin-bottom:20px;background:#fff;}
   .result-row{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer;gap:10px;}
   .result-row:last-child{border-bottom:none;}
   .result-row:hover{background:var(--panel);}
@@ -45,12 +46,12 @@
   /* Order-view product browsing — a separate photo-card grid from the plain .result-row list the
      admin price editor still uses (that one stays text-only, editing a price isn't a browse UI). */
   .product-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px;max-height:560px;overflow-y:auto;padding:2px;margin-bottom:20px;}
-  .product-card{background:#fff;border:2px solid var(--line);border-radius:10px;overflow:hidden;
-    box-shadow:0 3px 0 var(--line);transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;}
-  .product-card:not(.out):hover{transform:translateY(-2px);border-color:var(--brand-green);box-shadow:0 5px 0 var(--brand-green);}
+  .product-card{background:#fff;border:none;border-radius:14px;overflow:hidden;
+    box-shadow:var(--shadow-rest);transition:transform .15s ease,box-shadow .15s ease;}
+  .product-card:not(.out):hover{transform:translateY(-3px);box-shadow:var(--shadow-hover);}
   .product-card .photo{width:100%;aspect-ratio:1/1;background:var(--cat-tint,var(--panel));display:flex;align-items:center;justify-content:center;overflow:hidden;}
   .product-card .photo img{width:100%;height:100%;object-fit:cover;display:block;}
-  .product-card .photo svg{width:34px;height:34px;color:var(--cat-color,var(--grey));}
+  .product-card .photo svg{width:56px;height:56px;color:var(--cat-color,var(--grey));}
   .product-card.out .photo{opacity:.4;}
   .product-card .info{padding:10px 12px 12px;}
   .product-card .name{font-size:12px;font-weight:bold;line-height:1.3;min-height:2.6em;}
@@ -58,21 +59,23 @@
   .product-card .foot{display:flex;justify-content:space-between;align-items:center;gap:8px;}
   .product-card .rsp{font-weight:bold;font-size:13px;}
   .product-card.out .rsp{color:var(--bad);font-size:11px;}
-  .product-card button.add{background:var(--ink);color:#fff;border:none;padding:7px 12px;border-radius:5px;font-size:10px;
-    font-weight:bold;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;box-shadow:0 2px 0 rgba(0,0,0,.4);}
+  .product-card button.add{background:var(--ink);color:var(--cream);border:none;padding:7px 12px;border-radius:16px;font-size:10px;
+    font-weight:bold;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;box-shadow:var(--shadow-rest);transition:transform .15s ease;}
   .product-card button.add:hover{transform:translateY(-1px);}
-  .order-panel{background:var(--panel);border-radius:4px;padding:20px;margin-top:8px;}
+  .order-panel{background:var(--panel);border-radius:14px;padding:20px;margin-top:8px;}
   .order-panel h3{margin:0 0 4px;font-size:16px;}
   .order-panel .sub{font-size:12px;color:var(--grey);margin-bottom:16px;}
   .type-toggle{display:flex;gap:8px;margin-bottom:18px;}
-  .type-toggle button{flex:1;padding:12px;border:1px solid #ccc;background:#fff;border-radius:3px;cursor:pointer;font-size:13px;font-family:inherit;}
-  .type-toggle button.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .type-toggle button{flex:1;padding:12px;border:1px solid var(--line);background:#fff;border-radius:10px;cursor:pointer;font-size:13px;font-family:inherit;transition:background .15s ease;}
+  .type-toggle button.active{background:var(--ink);color:var(--cream);border-color:var(--ink);}
   .amount-row{display:flex;justify-content:space-between;font-size:14px;padding:6px 0;}
   .amount-row.total{font-weight:bold;border-top:1px solid var(--line);margin-top:8px;padding-top:12px;}
-  button.primary{background:var(--ink);color:#fff;border:none;padding:14px;width:100%;border-radius:3px;font-size:13px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-top:16px;}
-  button.primary:disabled{opacity:.4;cursor:not-allowed;}
-  button.secondary{background:#fff;border:1px solid #ccc;padding:10px 16px;border-radius:3px;font-size:12px;cursor:pointer;font-family:inherit;}
-  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:14px 22px;border-radius:4px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:50;max-width:90%;text-align:center;}
+  button.primary{background:var(--ink);color:var(--cream);border:none;padding:14px;width:100%;border-radius:14px;font-size:13px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-top:16px;box-shadow:var(--shadow-rest);transition:box-shadow .15s ease,transform .15s ease;}
+  button.primary:hover{box-shadow:var(--shadow-hover);transform:translateY(-1px);}
+  button.primary:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;transform:none;}
+  button.secondary{background:#fff;border:1px solid var(--line);padding:10px 16px;border-radius:12px;font-size:12px;cursor:pointer;font-family:inherit;transition:box-shadow .15s ease;}
+  button.secondary:hover{box-shadow:var(--shadow-rest);}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--cream);padding:14px 22px;border-radius:14px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:50;max-width:90%;text-align:center;box-shadow:var(--shadow-hover);}
   .toast.show{opacity:1;}
   .toast.err{background:var(--bad);}
   h2{font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--grey);margin:0 0 16px;}
@@ -85,22 +88,60 @@
   .row-flex .field{flex:1;min-width:140px;margin-bottom:0;}
   .lock{max-width:320px;margin:80px auto;text-align:center;}
 
+  .trail-banner{width:100%;height:120px;border-radius:16px;overflow:hidden;margin-bottom:20px;display:block;}
+
   .category-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;margin-bottom:26px;}
-  .category-tile{background:#fff;border:2px solid var(--cat-color,var(--brand-green));border-radius:10px;
-    padding:22px 14px 16px;text-align:center;cursor:pointer;box-shadow:0 3px 0 var(--cat-color,var(--brand-green));
-    transition:transform .15s ease,box-shadow .15s ease;}
-  .category-tile:hover{transform:translateY(-2px);box-shadow:0 5px 0 var(--cat-color,var(--brand-green));}
-  .category-tile:active{transform:translateY(1px);box-shadow:0 1px 0 var(--cat-color,var(--brand-green));}
-  .category-tile .icon{width:46px;height:46px;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;
-    background:var(--cat-tint,var(--panel));border-radius:50%;color:var(--cat-color,var(--ink));transition:background .18s ease,color .18s ease;}
-  .category-tile .icon svg{width:22px;height:22px;}
-  .category-tile:hover .icon{background:var(--cat-color,var(--brand-green));color:#fff;}
-  .category-tile .cat-name{font-size:12px;letter-spacing:1px;text-transform:uppercase;font-weight:bold;}
+  .category-tile{background:var(--cat-tint,var(--panel));border:none;border-radius:14px;
+    padding:16px 14px 16px;text-align:center;cursor:pointer;box-shadow:var(--shadow-rest);
+    transition:transform .2s ease,box-shadow .2s ease;}
+  .category-tile:hover{transform:translateY(-3px);box-shadow:var(--shadow-hover);}
+  .category-tile .icon{width:64px;height:64px;margin:0 auto 6px;color:var(--cat-color);}
+  .category-tile .icon svg{width:100%;height:100%;}
+  .category-tile .cat-name{font-size:12px;letter-spacing:1px;text-transform:uppercase;font-weight:bold;color:var(--ink);}
   .category-tile .cat-count{font-size:11px;color:var(--grey);margin-top:4px;}
   .category-active-bar{display:none;justify-content:space-between;align-items:center;margin-bottom:16px;}
   .category-back{cursor:pointer;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--grey);display:flex;align-items:center;gap:6px;}
   .category-back:hover{color:var(--ink);}
   .category-active-label{font-size:15px;font-weight:bold;}
+
+  /* Category character animations — resting pose by default, only plays while actually hovered
+     (never an always-looping idle animation, see the design discussion this was built from). Each
+     category's moving parts are scoped under its own .cat-{key} class so five tiles on screen at
+     once don't cross-trigger each other's keyframes. */
+  .cat-apparel:hover .arm-l{animation:catArmUpL 1.8s ease-in-out infinite;}
+  .cat-apparel:hover .arm-r{animation:catArmUpR 1.8s ease-in-out infinite;}
+  .cat-apparel:hover .prop{animation:catShirtOn 1.8s ease-in-out infinite;}
+  @keyframes catArmUpL{0%,100%{transform:rotate(0);}45%,65%{transform:rotate(-110deg);}}
+  @keyframes catArmUpR{0%,100%{transform:rotate(0);}45%,65%{transform:rotate(110deg);}}
+  @keyframes catShirtOn{0%,50%{opacity:0;}60%,100%{opacity:1;}}
+
+  .cat-footwear:hover .torso{animation:catLean 1.8s ease-in-out infinite;}
+  .cat-footwear:hover .arm-r{animation:catReach 1.8s ease-in-out infinite;}
+  .cat-footwear:hover .leg-r{animation:catLift 1.8s ease-in-out infinite;}
+  .cat-footwear:hover .prop{animation:catShoeOn 1.8s ease-in-out infinite;}
+  @keyframes catLean{0%,100%{transform:rotate(0);}45%,55%{transform:rotate(18deg);}}
+  @keyframes catReach{0%,100%{transform:rotate(0);}45%,55%{transform:rotate(70deg);}}
+  @keyframes catLift{0%,100%{transform:translateY(0);}45%,55%{transform:translateY(-4px);}}
+  @keyframes catShoeOn{0%,40%{opacity:0;}50%,90%{opacity:1;}100%{opacity:0;}}
+
+  .cat-accessories:hover .arm-r{animation:catArmUpFace 1.8s ease-in-out infinite;}
+  .cat-accessories:hover .prop-hand{animation:catHandShades 1.8s ease-in-out infinite;}
+  .cat-accessories:hover .prop-face{animation:catFaceShades 1.8s ease-in-out infinite;}
+  @keyframes catArmUpFace{0%,100%{transform:rotate(0);}45%,65%{transform:rotate(-95deg);}}
+  @keyframes catHandShades{0%,40%{opacity:0;}50%,60%{opacity:1;}70%,100%{opacity:0;}}
+  @keyframes catFaceShades{0%,60%{opacity:0;}70%,100%{opacity:1;}}
+
+  .cat-bags:hover .arm-l{animation:catArmSwing 1.8s ease-in-out infinite;}
+  .cat-bags:hover .strap{animation:catStrapOn 1.8s ease-in-out infinite;}
+  .cat-bags:hover .prop{animation:catBagRise 1.8s ease-in-out infinite;}
+  @keyframes catArmSwing{0%,100%{transform:rotate(0);}45%,65%{transform:rotate(-40deg);}}
+  @keyframes catStrapOn{0%,40%{opacity:0;}50%,100%{opacity:1;}}
+  @keyframes catBagRise{0%{opacity:0;transform:translateY(0);}40%{opacity:1;transform:translateY(0);}100%{opacity:1;transform:translateY(-14px);}}
+
+  .cat-wallets:hover .arm-r{animation:catArmPocket 1.8s ease-in-out infinite;}
+  .cat-wallets:hover .prop{animation:catWalletTuck 1.8s ease-in-out infinite;}
+  @keyframes catArmPocket{0%,100%{transform:rotate(0);}45%,65%{transform:rotate(55deg);}}
+  @keyframes catWalletTuck{0%,35%{opacity:0;}45%,55%{opacity:1;}70%,100%{opacity:0;}}
 
   /* Purely decorative — sits in the empty margin beside the centered 720px column, so it only
      ever shows up when there's genuinely spare width and never competes with the real UI. */
@@ -188,6 +229,15 @@
     </div>
 
     <div id="orderContent" style="display:none">
+      <svg class="trail-banner" viewBox="0 0 448 120" preserveAspectRatio="xMidYMid slice">
+        <rect width="448" height="120" fill="#DCE3C7"/>
+        <rect x="0" y="70" width="448" height="50" fill="#9CAE7C"/>
+        <polygon points="60,90 130,30 200,90" fill="#7C9A5C"/>
+        <polygon points="150,90 230,45 310,90" fill="#6E8C52"/>
+        <circle cx="360" cy="35" r="18" fill="#F2D98A"/>
+        <path d="M0 100 Q 224 70 448 100" stroke="#C9B892" stroke-width="10" fill="none"/>
+      </svg>
+
       <div id="balanceCard" class="balance-card" style="display:none">
         <div class="stat" style="--stat-color:#2C5F8A;--stat-tint:#E1EBF3"><div class="label">Annual Allowance</div><div class="value" id="balAllowance">R0</div></div>
         <div class="stat" id="balBalanceStat" style="--stat-color:#6E8C52;--stat-tint:#EAF0E3"><div class="label" id="balBalanceLabel">Balance Remaining</div><div class="value" id="balBalance">R0</div></div>
@@ -601,17 +651,52 @@ let selectedStaff = null;
 let activeFilter = null; // null = browsing the tile grids; else {type:'category'|'department', value, label}
 let hasDepartmentTiles = false; // whether the Shop by Department row has anything to show at all
 
-// One line icon + accent colour per category, as they actually appear in the products table
-// (checked live via the Supabase console 2026-09-04: Bags, Apparel, Footwear, Accessories,
+// One character animation + accent colour per category, as they actually appear in the products
+// table (checked live via the Supabase console 2026-09-04: Bags, Apparel, Footwear, Accessories,
 // Wallets, Other, plus some rows with no category at all — those fall into "Other" too, see
 // categoryOf()). Colours are earthy/muted to stay in FOM's palette rather than a generic rainbow.
+// Each icon is a small figure in a resting pose; the moving parts (classes like .arm-l/.torso/
+// .prop) only animate on :hover via the .cat-{key} rules in <style> — see buildCategoryGrid(),
+// which adds that class. Figures use currentColor for the body so they pick up --cat-color
+// automatically; each category's "prop" (shirt/shoe/sunglasses/bag/wallet) keeps its own fixed
+// accent colour since it's a distinct object, not part of the person.
 const CATEGORY_META = {
-  'Apparel':     { icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3l4 2 4-2 4 4-3 3v11H7V10L4 7z"/></svg>', color: '#C05B33', tint: '#FBE7DC' },
-  'Footwear':    { icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c0-2 1-3.2 3-4.2l5-2.8 2 2h3c2 0 5 1 5 4v1a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M3 17v-3"/></svg>', color: '#1F7A6C', tint: '#DFF3EE' },
-  'Accessories': { icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.5" cy="13" r="3.5"/><circle cx="17.5" cy="13" r="3.5"/><path d="M10 12h4M3 12l2-5h2M21 12l-2-5h-2"/></svg>', color: '#D99A1B', tint: '#FCF0D6' },
-  'Bags':        { icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12l1 12H5z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>', color: '#8A5A34', tint: '#F3E7DA' },
-  'Wallets':     { icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><circle cx="16" cy="14" r="1.2" fill="currentColor" stroke="none"/></svg>', color: '#8B3A5C', tint: '#F6E1EA' },
-  'Other':       { icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12l-8 8-9-9V4h7z"/><circle cx="7.5" cy="7.5" r="1.2" fill="currentColor" stroke="none"/></svg>', color: '#5B6470', tint: '#E9EBEE' }
+  'Apparel': { color: '#C05B33', tint: '#FBE7DC', icon:
+    '<svg viewBox="0 0 100 100"><circle cx="50" cy="28" r="9" fill="currentColor"/>'+
+    '<rect x="41" y="37" width="18" height="26" rx="8" fill="currentColor"/>'+
+    '<rect x="44" y="63" width="6" height="18" rx="3" fill="#3A3F2E"/><rect x="52" y="63" width="6" height="18" rx="3" fill="#3A3F2E"/>'+
+    '<g class="arm-l" style="transform-origin:38px 42px"><rect x="31" y="40" width="7" height="20" rx="3.5" fill="currentColor"/></g>'+
+    '<g class="arm-r" style="transform-origin:62px 42px"><rect x="62" y="40" width="7" height="20" rx="3.5" fill="currentColor"/></g>'+
+    '<rect class="prop" x="38" y="36" width="24" height="26" rx="6" fill="#C05B33" opacity="0"/></svg>' },
+  'Footwear': { color: '#1F7A6C', tint: '#DFF3EE', icon:
+    '<svg viewBox="0 0 100 100"><g class="torso" style="transform-origin:50px 55px"><circle cx="50" cy="30" r="9" fill="currentColor"/><rect x="40" y="40" width="20" height="30" rx="8" fill="currentColor"/></g>'+
+    '<g class="arm-r" style="transform-origin:58px 45px"><rect x="56" y="44" width="7" height="24" rx="3.5" fill="currentColor"/></g>'+
+    '<rect x="42" y="68" width="7" height="16" rx="3" fill="#3A3F2E"/>'+
+    '<g class="leg-r" style="transform-origin:53px 68px"><rect x="50" y="68" width="7" height="16" rx="3" fill="#3A3F2E"/><ellipse class="prop" cx="53" cy="86" rx="9" ry="4" fill="#B98E3F" opacity="0"/></g></svg>' },
+  'Accessories': { color: '#D99A1B', tint: '#FCF0D6', icon:
+    '<svg viewBox="0 0 100 100"><circle cx="50" cy="28" r="9" fill="currentColor"/>'+
+    '<rect x="41" y="37" width="18" height="26" rx="8" fill="currentColor"/>'+
+    '<rect x="44" y="63" width="6" height="18" rx="3" fill="#3A3F2E"/><rect x="52" y="63" width="6" height="18" rx="3" fill="#3A3F2E"/>'+
+    '<rect x="34" y="40" width="7" height="20" rx="3.5" fill="currentColor"/>'+
+    '<g class="arm-r" style="transform-origin:62px 42px"><rect x="62" y="40" width="7" height="20" rx="3.5" fill="currentColor"/><ellipse class="prop-hand" cx="65" cy="60" rx="6" ry="3" fill="#3A3F2E" opacity="0"/></g>'+
+    '<rect class="prop-face" x="43" y="25" width="14" height="5" rx="2.5" fill="#3A3F2E" opacity="0"/></svg>' },
+  'Bags': { color: '#8A5A34', tint: '#F3E7DA', icon:
+    '<svg viewBox="0 0 100 100"><circle cx="50" cy="28" r="9" fill="currentColor"/>'+
+    '<rect x="41" y="37" width="18" height="26" rx="8" fill="currentColor"/>'+
+    '<rect x="44" y="63" width="6" height="18" rx="3" fill="#3A3F2E"/><rect x="52" y="63" width="6" height="18" rx="3" fill="#3A3F2E"/>'+
+    '<rect x="58" y="40" width="7" height="20" rx="3.5" fill="currentColor"/>'+
+    '<g class="arm-l" style="transform-origin:38px 42px"><rect x="31" y="40" width="7" height="20" rx="3.5" fill="currentColor"/></g>'+
+    '<path class="strap" d="M38 40 Q30 55 40 68" stroke="#5C4630" stroke-width="3" fill="none" opacity="0"/>'+
+    '<rect class="prop" x="30" y="60" width="16" height="14" rx="3" fill="#5C4630" opacity="0"/></svg>' },
+  'Wallets': { color: '#8B3A5C', tint: '#F6E1EA', icon:
+    '<svg viewBox="0 0 100 100"><circle cx="50" cy="28" r="9" fill="currentColor"/>'+
+    '<rect x="41" y="37" width="18" height="26" rx="8" fill="currentColor"/>'+
+    '<rect x="44" y="63" width="6" height="18" rx="3" fill="#3A3F2E"/><rect x="52" y="63" width="6" height="18" rx="3" fill="#3A3F2E"/>'+
+    '<rect x="34" y="40" width="7" height="20" rx="3.5" fill="currentColor"/>'+
+    '<g class="arm-r" style="transform-origin:62px 42px"><rect x="62" y="40" width="7" height="20" rx="3.5" fill="currentColor"/></g>'+
+    '<rect class="prop" x="58" y="55" width="10" height="8" rx="2" fill="#5C1F3A" opacity="0"/></svg>' },
+  'Other': { color: '#5B6470', tint: '#E9EBEE', icon:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12l-8 8-9-9V4h7z"/><circle cx="7.5" cy="7.5" r="1.2" fill="currentColor" stroke="none"/></svg>' } // catch-all bucket — no single action fits, so it keeps the plain tag icon
 };
 const CATEGORY_ORDER = ['Apparel','Footwear','Accessories','Bags','Wallets','Other'];
 // products with no category, or a category we don't have a tile for, all land under "Other"
@@ -641,7 +726,7 @@ function buildCategoryGrid(){
   CATEGORY_ORDER.forEach(c => counts[c] = 0);
   PRODUCTS.forEach(p => { counts[categoryOf(p)]++; });
   document.getElementById('categoryGrid').innerHTML = CATEGORY_ORDER.filter(c => counts[c] > 0).map(c =>
-    tileHtml(c, CATEGORY_META[c], counts[c], 'selectCategory')
+    tileHtml(c, CATEGORY_META[c], counts[c], 'selectCategory', 'cat-'+c.toLowerCase())
   ).join('');
 }
 
@@ -657,8 +742,8 @@ function buildDepartmentGrid(){
   document.getElementById('departmentView').style.display = hasDepartmentTiles ? 'block' : 'none';
 }
 
-function tileHtml(label, meta, count, onclickFn){
-  return '<div class="category-tile" style="--cat-color:'+meta.color+';--cat-tint:'+meta.tint+'" onclick="'+onclickFn+'(\''+label+'\')">'+
+function tileHtml(label, meta, count, onclickFn, extraClass){
+  return '<div class="category-tile'+(extraClass?' '+extraClass:'')+'" style="--cat-color:'+meta.color+';--cat-tint:'+meta.tint+'" onclick="'+onclickFn+'(\''+label+'\')">'+
     '<div class="icon">'+meta.icon+'</div>'+
     '<div class="cat-name">'+label+'</div>'+
     '<div class="cat-count">'+count+' item'+(count===1?'':'s')+'</div>'+
