@@ -10,7 +10,14 @@
     --cream:#F4F1E9; --shadow-rest:0 2px 8px rgba(58,63,46,.07); --shadow-hover:0 10px 20px rgba(58,63,46,.14);
   }
   *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
   body{font-family:Helvetica,Arial,sans-serif;color:var(--ink);background:var(--cream);margin:0;}
+  @media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto;} *{animation-duration:.001s !important;transition-duration:.001s !important;} }
+  /* One shared "arrive" animation — reused everywhere content appears (view switches, search
+     results, filtered tiles, cart panel) instead of the old hard display:none/block snap. Browsers
+     replay a CSS animation whenever an element goes from display:none to visible, so this needs no
+     JS timing logic at all — just attach it to the container that was already being toggled. */
+  @keyframes flowIn{ from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:translateY(0);} }
   header{background:var(--brand-green);color:var(--ink);padding:18px 24px;display:flex;align-items:center;justify-content:space-between;}
   header .brand{font-size:13px;letter-spacing:3px;text-transform:uppercase;font-weight:bold;}
   header nav{display:flex;gap:8px;flex-wrap:wrap;}
@@ -21,7 +28,7 @@
   header nav button.active{background:var(--ink);color:var(--cream);box-shadow:var(--shadow-hover);}
   main{max-width:720px;margin:0 auto;padding:28px 20px 80px;}
   .view{display:none;}
-  .view.active{display:block;}
+  .view.active{display:block;animation:flowIn .4s cubic-bezier(.2,.8,.2,1);}
   label{display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--grey);margin-bottom:6px;}
   select,input[type=text],input[type=number],input[type=file],input[type=password]{
     width:100%;padding:11px 12px;font-size:14px;border:1px solid var(--line);border-radius:10px;font-family:inherit;background:#fff;color:var(--ink);
@@ -33,7 +40,7 @@
   .balance-card .stat:hover{box-shadow:var(--shadow-hover);transform:translateY(-2px);}
   .balance-card .label{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--grey);margin-bottom:6px;}
   .balance-card .value{font-size:20px;font-weight:bold;color:var(--ink);}
-  .results{border:1px solid var(--line);border-radius:10px;max-height:360px;overflow:auto;margin-bottom:20px;background:#fff;}
+  .results{border:1px solid var(--line);border-radius:10px;max-height:360px;overflow:auto;margin-bottom:20px;background:#fff;animation:flowIn .35s ease;}
   .result-row{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer;gap:10px;}
   .result-row:last-child{border-bottom:none;}
   .result-row:hover{background:var(--panel);}
@@ -45,7 +52,11 @@
 
   /* Order-view product browsing — a separate photo-card grid from the plain .result-row list the
      admin price editor still uses (that one stays text-only, editing a price isn't a browse UI). */
-  .product-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px;max-height:560px;overflow-y:auto;padding:2px;margin-bottom:20px;}
+  .product-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px;max-height:560px;overflow-y:auto;padding:2px;margin-bottom:20px;animation:flowIn .4s cubic-bezier(.2,.8,.2,1);}
+  .product-card{animation:flowIn .45s cubic-bezier(.2,.8,.2,1) backwards;}
+  .product-card:nth-child(2){animation-delay:.03s;} .product-card:nth-child(3){animation-delay:.06s;}
+  .product-card:nth-child(4){animation-delay:.09s;} .product-card:nth-child(5){animation-delay:.12s;}
+  .product-card:nth-child(6){animation-delay:.15s;} .product-card:nth-child(n+7){animation-delay:.18s;}
   .product-card{position:relative;background:#fff;border:none;border-radius:14px;overflow:hidden;
     box-shadow:var(--shadow-rest);transition:transform .15s ease,box-shadow .15s ease;}
   .product-card:not(.out):hover{transform:translateY(-3px);box-shadow:var(--shadow-hover);}
@@ -62,7 +73,7 @@
   .product-card button.add{background:var(--ink);color:var(--cream);border:none;padding:7px 12px;border-radius:16px;font-size:10px;
     font-weight:bold;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;box-shadow:var(--shadow-rest);transition:transform .15s ease;}
   .product-card button.add:hover{transform:translateY(-1px);}
-  .order-panel{background:var(--panel);border-radius:14px;padding:20px;margin-top:8px;}
+  .order-panel{background:var(--panel);border-radius:14px;padding:20px;margin-top:8px;animation:flowIn .35s ease;}
   .order-panel h3{margin:0 0 4px;font-size:16px;}
   .order-panel .sub{font-size:12px;color:var(--grey);margin-bottom:16px;}
   .type-toggle{display:flex;gap:8px;margin-bottom:18px;}
@@ -121,7 +132,11 @@
   .category-tile .icon svg{width:100%;height:100%;}
   .category-tile .cat-name{font-size:12px;letter-spacing:1px;text-transform:uppercase;font-weight:bold;color:var(--ink);}
   .category-tile .cat-count{font-size:11px;color:var(--grey);margin-top:4px;}
-  .category-active-bar{display:none;justify-content:space-between;align-items:center;margin-bottom:16px;}
+  .category-active-bar{display:none;justify-content:space-between;align-items:center;margin-bottom:16px;animation:flowIn .35s ease;}
+  .category-tile{animation:flowIn .4s cubic-bezier(.2,.8,.2,1) backwards;}
+  .category-tile:nth-child(2){animation-delay:.03s;} .category-tile:nth-child(3){animation-delay:.06s;}
+  .category-tile:nth-child(4){animation-delay:.09s;} .category-tile:nth-child(5){animation-delay:.12s;}
+  .category-tile:nth-child(6){animation-delay:.15s;} .category-tile:nth-child(n+7){animation-delay:.18s;}
   .category-back{cursor:pointer;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--grey);display:flex;align-items:center;gap:6px;}
   .category-back:hover{color:var(--ink);}
   .category-active-label{font-size:15px;font-weight:bold;}
