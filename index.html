@@ -93,6 +93,11 @@
   table.admin{width:100%;border-collapse:collapse;font-size:13px;}
   table.admin th,table.admin td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);}
   table.admin th{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--grey);}
+  .item-count{font-weight:bold;margin-bottom:4px;}
+  .item-list{display:flex;flex-direction:column;gap:3px;}
+  .item-row{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;}
+  .item-row .item-remove{background:none;border:1px solid var(--line);color:var(--bad);padding:2px 10px;border-radius:999px;font-size:10px;letter-spacing:.3px;text-transform:uppercase;cursor:pointer;white-space:nowrap;}
+  .item-row .item-remove:hover{background:var(--bad);color:#fff;border-color:var(--bad);}
   .admin-section{margin-bottom:14px;border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden;}
   .admin-section summary{cursor:pointer;padding:16px 18px;font-size:13px;letter-spacing:2px;text-transform:uppercase;
     color:var(--ink);font-weight:bold;list-style:none;display:flex;justify-content:space-between;align-items:center;}
@@ -499,7 +504,7 @@
       <details class="admin-section">
         <summary>Order History (Cancel / Exchange)</summary>
         <div class="admin-section-body">
-          <p style="font-size:13px;color:var(--grey);margin-top:-8px">Cancelling an order deletes it and, for Staff Allowance orders, automatically refunds the amount to that person's balance. For an exchange, cancel the wrong item then have them place a new order.</p>
+          <p style="font-size:13px;color:var(--grey);margin-top:-8px">Cancelling an order deletes it and, for Staff Allowance orders, automatically refunds the amount to that person's balance. For an exchange, remove just the wrong item from the order below (refunding only that item) then have them place a new order for the replacement — no need to cancel and re-order everything.</p>
           <button class="secondary" onclick="loadOrderHistory()">Refresh</button>
           <table class="admin" id="historyTable">
             <thead><tr><th>Date</th><th>Staff</th><th>Product</th><th>Qty</th><th>Type</th><th>Amount</th><th>Cin7 Invoice</th><th></th></tr></thead>
@@ -2314,6 +2319,47 @@ function groupByCart(rows){
   return order.map(k=>groups[k]);
 }
 
+// Single-item groups just show the product name. Multi-item groups get a per-line "Remove"
+// control so a wrong item can come out of the cart (with its own refund) without cancelling
+// the whole order and making the person re-order everything for an exchange.
+function itemsCellHtml(g, scope){
+  if(g.orders.length === 1) return escapeHtml(g.orders[0].product);
+  return '<div class="item-count">'+g.orders.length+' items</div><div class="item-list">'+
+    g.orders.map(o=>
+      '<div class="item-row"><span>'+escapeHtml(o.product)+(o.qty>1?' (x'+o.qty+')':'')+'</span>'+
+      '<button class="item-remove" onclick="removeOrderItem('+o.id+',\''+g.key+'\',\''+scope+'\')">Remove</button></div>'
+    ).join('')+
+  '</div>';
+}
+
+async function removeOrderItem(orderId, groupKey, scope){
+  const g = (scope==='discount'?discountGroups:historyGroups).find(x=>x.key===groupKey);
+  if(!g) return;
+  const order = g.orders.find(o=>o.id===orderId);
+  if(!order) return;
+  if(g.orders.length <= 1){ toast('Use Cancel to remove the whole order', true); return; }
+  const willRefund = order.order_type === 'allowance' && !order.is_historical;
+  const refundAmt = Number(order.amount);
+  const confirmMsg = 'Remove "'+order.product+'" from this order?'
+    +(willRefund ? ' R'+money(refundAmt)+' will be refunded to '+order.staff_name+"'s balance." : ' No balance change — this was a discount/pay-in item.')
+    +' The rest of the order stays as-is.';
+  if(!confirm(confirmMsg)) return;
+  try{
+    if(willRefund){
+      const newBalance = await sb('POST','rpc/adjust_staff_balance', { p_name: order.staff_name, p_delta: refundAmt });
+      await logAudit(order.staff_name, 'balance', newBalance - refundAmt, newBalance, 'order_item_removed');
+    }
+    await sb('DELETE','orders?id=eq.'+order.id, null, {'Prefer':'return=minimal'});
+    toast('Item removed'+(willRefund?' and refunded':'')+' — add the exchange as a new order');
+    loadOrderHistory();
+    loadDiscountReport();
+    loadStaffTable();
+  }catch(e){
+    console.error(e);
+    toast('Could not remove this item', true);
+  }
+}
+
 function invoiceCellHtml(g, scope){
   const inputId = 'invFile-'+scope+'-'+g.key;
   return g.invoice_url
@@ -2335,8 +2381,7 @@ async function loadDiscountReport(){
     const totalDiscount = totalRsp - totalPayable;
     const totalQty = g.orders.reduce((s,o)=>s+o.qty,0);
     const hasTopup = g.orders.some(o=>o.is_topup);
-    const productLabel = (g.orders.length===1 ? escapeHtml(g.orders[0].product)
-      : g.orders.length+' items: '+g.orders.map(o=>escapeHtml(o.product)).join(', '))
+    const productLabel = itemsCellHtml(g,'discount')
       + (hasTopup ? ' <span style="color:var(--grey);font-size:11px">(allowance top-up)</span>' : '');
     return '<tr><td>'+new Date(g.created_at).toLocaleDateString('en-ZA')+'</td><td>'+escapeHtml(g.staff_name)+'</td>'+
       '<td>'+productLabel+'</td><td>'+totalQty+'</td><td>R'+money(totalRsp)+'</td>'+
@@ -2443,8 +2488,7 @@ async function loadOrderHistory(){
     const totalQty = g.orders.reduce((s,o)=>s+o.qty,0);
     const totalAmount = g.orders.reduce((s,o)=>s+Number(o.amount),0);
     const isSplitGroup = new Set(g.orders.map(o=>o.order_type)).size > 1;
-    const productLabel = g.orders.length===1 ? escapeHtml(g.orders[0].product)
-      : g.orders.length+' items: '+g.orders.map(o=>escapeHtml(o.product)).join(', ');
+    const productLabel = itemsCellHtml(g,'history');
     const typeLabel = isSplitGroup ? 'Split (Allowance + Pay-in)' : (g.orders[0].order_type==='allowance'?'Allowance':'Discount');
     // a split group's pay-in portion is invoiced via the Discount Report (which cleanly isolates
     // just that row) rather than here, to avoid building a second, easy-to-get-wrong invoicing path
