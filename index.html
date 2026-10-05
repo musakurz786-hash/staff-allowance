@@ -4,147 +4,184 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FOM Staff Allowance & Discount Portal</title>
+<meta name="theme-color" content="#0a0a0a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  /* Dark monochrome theme (shadcn-style): near-black page, soft rounded cards, grey surfaces, light
+     pill buttons. The old variable names are kept so every rule and inline style that already uses
+     them picks up the new palette: --ink is now the light foreground, --cream the dark background
+     (so "ink background + cream text" buttons come out light-on-dark), --panel the grey surface. */
   :root{
-    --ink:#3A3F2E; --grey:#7A8066; --panel:#EFEAD9; --line:#E3DDC8; --good:#2e7d32; --bad:#c0392b; --brand-green:#6E8C52;
-    --cream:#F4F1E9; --shadow-rest:0 2px 8px rgba(58,63,46,.07); --shadow-hover:0 10px 20px rgba(58,63,46,.14);
+    color-scheme:dark;
+    --ink:#fafafa; --grey:#a1a1a1; --panel:#232323; --panel-hover:#2c2c2c; --line:rgba(255,255,255,.08);
+    --card:#141414; --cream:#0a0a0a; --good:#4ade80; --bad:#f87171; --brand-green:#d4d4d4;
+    --radius-card:24px; --radius-inner:16px;
+    --shadow-rest:none; --shadow-hover:none;
   }
   *{box-sizing:border-box;}
   html{scroll-behavior:smooth;}
-  body{font-family:Helvetica,Arial,sans-serif;color:var(--ink);background:var(--cream);margin:0;}
+  body{font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--ink);background:var(--cream);margin:0;
+    -webkit-font-smoothing:antialiased;font-feature-settings:'cv11','ss01';}
+  a{color:var(--ink);text-underline-offset:3px;}
+  *{scrollbar-color:#3a3a3a transparent;scrollbar-width:thin;}
   @media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto;} *{animation-duration:.001s !important;transition-duration:.001s !important;} }
   /* One shared "arrive" animation — reused everywhere content appears (view switches, search
      results, filtered tiles, cart panel) instead of the old hard display:none/block snap. Browsers
      replay a CSS animation whenever an element goes from display:none to visible, so this needs no
      JS timing logic at all — just attach it to the container that was already being toggled. */
   @keyframes flowIn{ from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:translateY(0);} }
-  header{background:var(--brand-green);color:var(--ink);padding:18px 24px;display:flex;align-items:center;justify-content:space-between;}
-  header .brand{font-size:13px;letter-spacing:3px;text-transform:uppercase;font-weight:bold;}
-  header nav{display:flex;gap:8px;flex-wrap:wrap;}
-  header nav button{background:rgba(255,255,255,.55);border:none;color:var(--ink);padding:9px 18px;font-size:12px;font-weight:bold;
-    letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:999px;box-shadow:var(--shadow-rest);
-    transition:transform .15s ease,box-shadow .15s ease,background .15s ease;}
-  header nav button:hover{transform:translateY(-1px);box-shadow:var(--shadow-hover);background:rgba(255,255,255,.8);}
-  header nav button.active{background:var(--ink);color:var(--cream);box-shadow:var(--shadow-hover);}
+  header{background:rgba(10,10,10,.85);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:var(--ink);
+    padding:14px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+    border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20;}
+  header .brand{font-size:15px;font-weight:600;letter-spacing:-.01em;}
+  header .brand img{filter:brightness(0) invert(1);}
+  header nav{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+  header nav button{background:var(--panel);border:none;color:var(--ink);padding:8px 16px;font-size:13px;font-weight:500;
+    cursor:pointer;border-radius:999px;font-family:inherit;transition:background .15s ease,color .15s ease;}
+  header nav button:hover{background:var(--panel-hover);}
+  header nav button.active{background:var(--ink);color:var(--cream);}
   main{max-width:720px;margin:0 auto;padding:36px 20px 80px;}
   .view{display:none;}
   .view.active{display:block;animation:flowIn .4s cubic-bezier(.2,.8,.2,1);}
-  label{display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--grey);margin-bottom:6px;}
-  select,input[type=text],input[type=number],input[type=file],input[type=password]{
-    width:100%;padding:11px 12px;font-size:14px;border:1px solid var(--line);border-radius:10px;font-family:inherit;background:#fff;color:var(--ink);
+  label{display:block;font-size:14px;font-weight:600;color:var(--ink);margin-bottom:8px;}
+  select,input[type=text],input[type=number],input[type=file],input[type=password],textarea{
+    width:100%;padding:10px 16px;font-size:14px;border:1px solid transparent;border-radius:999px;font-family:inherit;
+    background:var(--panel);color:var(--ink);outline:none;transition:border-color .15s ease,background .15s ease;
   }
-  .field{margin-bottom:18px;}
+  textarea{border-radius:var(--radius-inner);}
+  input::placeholder,textarea::placeholder{color:#8a8a8a;}
+  select:focus,input:focus,textarea:focus{border-color:rgba(255,255,255,.28);}
+  input:disabled{opacity:.5;}
+  input[type=file]{padding:8px 10px;}
+  input[type=file]::file-selector-button{background:var(--panel-hover);color:var(--ink);border:none;border-radius:999px;
+    padding:6px 14px;margin-right:12px;font-family:inherit;font-weight:500;cursor:pointer;}
+  .field{margin-bottom:20px;}
   .balance-card{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;}
-  .balance-card .stat{flex:1;min-width:120px;background:var(--stat-tint,var(--panel));border:none;
-    border-radius:14px;padding:14px 18px;box-shadow:var(--shadow-rest);transition:box-shadow .2s ease,transform .2s ease;}
-  .balance-card .stat:hover{box-shadow:var(--shadow-hover);transform:translateY(-2px);}
-  .balance-card .label{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--grey);margin-bottom:6px;}
-  .balance-card .value{font-size:20px;font-weight:bold;color:var(--ink);}
-  .results{border:1px solid var(--line);border-radius:10px;max-height:360px;overflow:auto;margin-bottom:20px;background:#fff;animation:flowIn .35s ease;}
-  .result-row{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer;gap:10px;}
+  .balance-card .stat{flex:1;min-width:120px;background:var(--card);border:1px solid var(--line);
+    border-radius:var(--radius-inner);padding:16px 18px;transition:border-color .2s ease;}
+  .balance-card .stat:hover{border-color:rgba(255,255,255,.16);}
+  .balance-card .label{font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--grey);margin-bottom:6px;}
+  .balance-card .value{font-size:22px;font-weight:600;letter-spacing:-.02em;color:var(--ink);}
+  .balance-card .stat.low .value{color:var(--bad);}
+  .results{border:1px solid var(--line);border-radius:var(--radius-inner);max-height:360px;overflow:auto;margin-bottom:20px;background:var(--card);animation:flowIn .35s ease;}
+  .result-row{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer;gap:10px;}
   .result-row:last-child{border-bottom:none;}
   .result-row:hover{background:var(--panel);}
-  .result-row .name{font-weight:bold;font-size:13px;}
-  .result-row .meta{font-size:11px;color:var(--grey);margin-top:2px;}
-  .result-row .rsp{font-weight:bold;white-space:nowrap;}
+  .result-row .name{font-weight:600;font-size:13px;}
+  .result-row .meta{font-size:12px;color:var(--grey);margin-top:2px;}
+  .result-row .rsp{font-weight:600;white-space:nowrap;}
   .result-row.out .rsp{color:var(--bad);}
   .empty{padding:20px;color:var(--grey);font-size:13px;text-align:center;}
 
   /* Order-view product browsing — a separate photo-card grid from the plain .result-row list the
      admin price editor still uses (that one stays text-only, editing a price isn't a browse UI). */
-  .product-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px;max-height:560px;overflow-y:auto;padding:2px;margin-bottom:20px;animation:flowIn .4s cubic-bezier(.2,.8,.2,1);}
+  .product-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;max-height:560px;overflow-y:auto;padding:2px;margin-bottom:20px;animation:flowIn .4s cubic-bezier(.2,.8,.2,1);}
   .product-card{animation:flowIn .45s cubic-bezier(.2,.8,.2,1) backwards;}
   .product-card:nth-child(2){animation-delay:.03s;} .product-card:nth-child(3){animation-delay:.06s;}
   .product-card:nth-child(4){animation-delay:.09s;} .product-card:nth-child(5){animation-delay:.12s;}
   .product-card:nth-child(6){animation-delay:.15s;} .product-card:nth-child(n+7){animation-delay:.18s;}
-  .product-card{position:relative;background:#fff;border:none;border-radius:14px;overflow:hidden;
-    box-shadow:var(--shadow-rest);transition:transform .15s ease,box-shadow .15s ease;}
-  .product-card:not(.out):hover{transform:translateY(-3px);box-shadow:var(--shadow-hover);}
-  .product-card .photo{width:100%;aspect-ratio:1/1;background:var(--cat-tint,var(--panel));display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .product-card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:20px;overflow:hidden;
+    transition:border-color .15s ease;}
+  .product-card:not(.out):hover{border-color:rgba(255,255,255,.18);}
+  .product-card .photo{width:100%;aspect-ratio:1/1;background:var(--panel);display:flex;align-items:center;justify-content:center;overflow:hidden;}
   .product-card .photo img{width:100%;height:100%;object-fit:cover;display:block;}
-  .product-card .photo svg{width:56px;height:56px;color:var(--cat-color,var(--grey));}
+  .product-card .photo svg{width:56px;height:56px;color:var(--grey);}
   .product-card.out .photo{opacity:.4;}
-  .product-card .info{padding:10px 12px 12px;}
-  .product-card .name{font-size:12px;font-weight:bold;line-height:1.3;min-height:2.6em;}
-  .product-card .meta{font-size:10px;color:var(--grey);margin:4px 0 8px;}
-  .product-card .foot{display:flex;justify-content:space-between;align-items:center;gap:8px;}
-  .product-card .rsp{font-weight:bold;font-size:13px;}
-  .product-card.out .rsp{color:var(--bad);font-size:11px;}
-  .product-card button.add{background:var(--ink);color:var(--cream);border:none;padding:7px 12px;border-radius:999px;font-size:10px;
-    font-weight:bold;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;box-shadow:var(--shadow-rest);transition:transform .15s ease;}
-  .product-card button.add:hover{transform:translateY(-1px);}
-  .order-panel{background:var(--panel);border-radius:14px;padding:20px;margin-top:8px;animation:flowIn .35s ease;}
-  .order-panel h3{margin:0 0 4px;font-size:16px;}
-  .order-panel .sub{font-size:12px;color:var(--grey);margin-bottom:16px;}
+  .product-card .info{padding:12px 14px 14px;}
+  .product-card .name{font-size:13px;font-weight:600;line-height:1.35;min-height:2.7em;}
+  .product-card .meta{font-size:11px;color:var(--grey);margin:4px 0 10px;}
+  .product-card .foot{display:flex;justify-content:space-between;align-items:center;gap:6px 8px;flex-wrap:wrap;}
+  .product-card .rsp{font-weight:600;font-size:14px;}
+  .product-card.out .rsp{color:var(--bad);font-size:12px;}
+  .product-card button.add{background:var(--ink);color:var(--cream);border:none;padding:6px 14px;border-radius:999px;font-size:12px;
+    font-weight:500;font-family:inherit;white-space:nowrap;cursor:pointer;transition:opacity .15s ease;}
+  .product-card button.add:hover{opacity:.85;}
+  .order-panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-card);padding:24px;margin-top:8px;animation:flowIn .35s ease;}
+  .order-panel h3{margin:0 0 4px;font-size:17px;font-weight:600;letter-spacing:-.01em;}
+  .order-panel .sub{font-size:13px;color:var(--grey);margin-bottom:18px;}
   .type-toggle{display:flex;gap:8px;margin-bottom:18px;}
-  .type-toggle button{flex:1;padding:12px;border:1px solid var(--line);background:#fff;border-radius:999px;cursor:pointer;font-size:13px;font-weight:bold;letter-spacing:.3px;font-family:inherit;transition:background .15s ease;}
-  .type-toggle button.active{background:var(--ink);color:var(--cream);border-color:var(--ink);}
-  .amount-row{display:flex;justify-content:space-between;font-size:14px;padding:6px 0;}
-  .amount-row.total{font-weight:bold;border-top:1px solid var(--line);margin-top:8px;padding-top:12px;}
-  button.primary{background:var(--ink);color:var(--cream);border:none;padding:15px;width:100%;border-radius:999px;font-size:13px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;margin-top:16px;box-shadow:var(--shadow-rest);transition:box-shadow .15s ease,transform .15s ease;}
-  button.primary:hover{box-shadow:var(--shadow-hover);transform:translateY(-1px);}
-  button.primary:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;transform:none;}
-  button.secondary{background:#fff;border:1px solid var(--line);padding:10px 18px;border-radius:999px;font-size:12px;font-weight:bold;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;font-family:inherit;transition:box-shadow .15s ease;}
-  button.secondary:hover{box-shadow:var(--shadow-rest);}
-  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--cream);padding:14px 22px;border-radius:14px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:50;max-width:90%;text-align:center;box-shadow:var(--shadow-hover);}
+  .type-toggle button{flex:1;padding:10px 12px;border:none;background:var(--panel);color:var(--ink);border-radius:999px;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;transition:background .15s ease,color .15s ease;}
+  .type-toggle button:hover{background:var(--panel-hover);}
+  .type-toggle button.active{background:var(--ink);color:var(--cream);}
+  .amount-row{display:flex;justify-content:space-between;font-size:14px;padding:6px 0;color:var(--grey);}
+  .amount-row span:last-child{color:var(--ink);}
+  .amount-row.total{font-weight:600;color:var(--ink);border-top:1px solid var(--line);margin-top:8px;padding-top:12px;}
+  button.primary{background:var(--ink);color:var(--cream);border:none;padding:12px;width:100%;border-radius:999px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;margin-top:16px;transition:opacity .15s ease;}
+  button.primary:hover{opacity:.88;}
+  button.primary:disabled{opacity:.35;cursor:not-allowed;}
+  button.secondary{background:var(--panel);color:var(--ink);border:1px solid transparent;padding:8px 18px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s ease;}
+  button.secondary:hover{background:var(--panel-hover);}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--cream);padding:12px 20px;border-radius:999px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:opacity .25s;z-index:50;max-width:90%;text-align:center;}
   .toast.show{opacity:1;}
-  .toast.err{background:var(--bad);}
-  h2{font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--grey);margin:0 0 16px;}
+  .toast.err{background:var(--bad);color:#1a0505;}
+  h2{font-size:17px;font-weight:600;letter-spacing:-.01em;color:var(--ink);margin:0 0 16px;}
   table.admin{width:100%;border-collapse:collapse;font-size:13px;}
-  table.admin th,table.admin td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);}
-  table.admin th{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--grey);}
-  .item-count{font-weight:bold;margin-bottom:4px;}
+  table.admin th,table.admin td{text-align:left;padding:10px;border-bottom:1px solid var(--line);}
+  table.admin th{font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--grey);}
+  table.admin input{padding:6px 12px;}
+  .item-count{font-weight:600;margin-bottom:4px;}
   .item-list{display:flex;flex-direction:column;gap:3px;}
   .item-row{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;}
-  .item-row .item-remove{background:none;border:1px solid var(--line);color:var(--bad);padding:2px 10px;border-radius:999px;font-size:10px;letter-spacing:.3px;text-transform:uppercase;cursor:pointer;white-space:nowrap;}
-  .item-row .item-remove:hover{background:var(--bad);color:#fff;border-color:var(--bad);}
-  .admin-section{margin-bottom:14px;border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden;}
-  .admin-section summary{cursor:pointer;padding:16px 18px;font-size:13px;letter-spacing:2px;text-transform:uppercase;
-    color:var(--ink);font-weight:bold;list-style:none;display:flex;justify-content:space-between;align-items:center;}
+  .item-row .item-remove{background:none;border:1px solid var(--line);color:var(--bad);padding:3px 10px;border-radius:999px;font-size:11px;font-family:inherit;cursor:pointer;white-space:nowrap;}
+  .item-row .item-remove:hover{background:var(--bad);color:#1a0505;border-color:var(--bad);}
+  .admin-section{margin-bottom:14px;border:1px solid var(--line);border-radius:var(--radius-card);background:var(--card);overflow:hidden;}
+  .admin-section summary{cursor:pointer;padding:20px 24px;font-size:16px;font-weight:600;letter-spacing:-.01em;
+    color:var(--ink);list-style:none;display:flex;justify-content:space-between;align-items:center;}
   .admin-section summary::-webkit-details-marker{display:none;}
-  .admin-section summary::after{content:'\2304';font-size:16px;color:var(--grey);transition:transform .2s ease;}
-  .admin-section[open] summary::after{transform:rotate(180deg);}
-  .admin-section summary:hover{background:var(--panel);}
-  .admin-section .admin-section-body{padding:0 18px 20px;}
-  .spend-bar-row{margin-bottom:10px;}
-  .spend-bar-label{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;}
-  .spend-bar-track{background:var(--panel);border-radius:6px;height:8px;overflow:hidden;}
-  .spend-bar-fill{height:100%;border-radius:6px;background:var(--brand-green);}
+  .admin-section summary::after{content:'';width:8px;height:8px;border-right:1.5px solid var(--grey);border-bottom:1.5px solid var(--grey);
+    transform:rotate(45deg) translate(-2px,-2px);transition:transform .2s ease;}
+  .admin-section[open] summary::after{transform:rotate(-135deg) translate(-2px,-2px);}
+  .admin-section summary:hover{background:rgba(255,255,255,.02);}
+  .admin-section .admin-section-body{padding:0 24px 24px;}
+  .admin-section-body p{line-height:1.5;}
+  .spend-bar-row{margin-bottom:12px;}
+  .spend-bar-label{display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;}
+  .spend-bar-track{background:var(--panel);border-radius:999px;height:8px;overflow:hidden;}
+  .spend-bar-fill{height:100%;border-radius:999px;background:var(--brand-green);}
   .row-flex{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
   .row-flex .field{flex:1;min-width:140px;margin-bottom:0;}
-  .lock{max-width:320px;margin:80px auto;text-align:center;}
+  .lock{max-width:360px;margin:72px auto;text-align:center;}
+  .lock .field{text-align:left;}
+  .login-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-card);padding:32px 28px;}
+  .login-card img{filter:brightness(0) invert(1);}
 
-  .trail-banner-wrap{position:relative;margin-bottom:32px;}
-  .trail-banner{width:100%;height:168px;border-radius:16px;overflow:hidden;display:block;}
-  .trail-banner-scrim{position:absolute;inset:0;background:rgba(42,46,32,.4);border-radius:16px;}
-  .trail-banner-brand{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
-    justify-content:center;text-align:center;color:#fff;}
-  .trail-banner-icon{height:34px;margin-bottom:10px;filter:brightness(0) invert(1);}
-  .trail-banner-title{font-size:30px;font-weight:900;letter-spacing:.5px;text-transform:uppercase;line-height:1.1;}
-  .trail-banner-tag{font-size:11px;letter-spacing:2px;text-transform:uppercase;opacity:.85;margin-top:8px;}
+  .trail-banner-wrap{position:relative;margin-bottom:28px;border-radius:var(--radius-card);overflow:hidden;
+    background:radial-gradient(120% 140% at 50% 0%,#262626 0%,var(--card) 60%);border:1px solid var(--line);}
+  .trail-banner-brand{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+    color:var(--ink);padding:36px 20px;}
+  .trail-banner-icon{height:30px;margin-bottom:14px;filter:brightness(0) invert(1);}
+  .trail-banner-title{font-size:30px;font-weight:700;letter-spacing:-.03em;line-height:1.1;}
+  .trail-banner-tag{font-size:14px;color:var(--grey);margin-top:8px;}
 
   /* Faint, fixed, never interactive — a background texture behind the whole app, not a UI element */
-  #pageWatermark{position:fixed;bottom:-70px;right:-70px;width:420px;height:420px;opacity:.05;
+  #pageWatermark{position:fixed;bottom:-70px;right:-70px;width:420px;height:420px;opacity:.025;
     pointer-events:none;z-index:-1;}
-  #pageWatermark img{width:100%;height:100%;object-fit:contain;}
+  #pageWatermark img{width:100%;height:100%;object-fit:contain;filter:brightness(0) invert(1);}
 
-  .category-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;margin-bottom:26px;}
-  .category-tile{background:var(--cat-tint,var(--panel));border:none;border-radius:14px;
-    padding:16px 14px 16px;text-align:center;cursor:pointer;box-shadow:var(--shadow-rest);
-    transition:transform .2s ease,box-shadow .2s ease;}
-  .category-tile:hover{transform:translateY(-3px);box-shadow:var(--shadow-hover);}
-  .category-tile .icon{width:64px;height:64px;margin:0 auto 6px;color:var(--cat-color);}
+  .category-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;margin-bottom:28px;}
+  .category-tile{background:var(--card);border:1px solid var(--line);border-radius:20px;
+    padding:18px 14px;text-align:center;cursor:pointer;
+    transition:border-color .2s ease,background .2s ease;}
+  .category-tile:hover{border-color:rgba(255,255,255,.18);background:#181818;}
+  .category-tile .icon{width:64px;height:64px;margin:0 auto 8px;color:#d4d4d4;}
   .category-tile .icon svg{width:100%;height:100%;}
-  .category-tile .cat-name{font-size:12px;letter-spacing:1px;text-transform:uppercase;font-weight:bold;color:var(--ink);}
-  .category-tile .cat-count{font-size:11px;color:var(--grey);margin-top:4px;}
+  /* the figures' legs/props were drawn in the old dark ink colour, invisible on a dark tile —
+     CSS beats SVG presentation attributes, so lift them to a mid grey here instead of editing every icon */
+  .category-tile svg [fill="#3A3F2E"], .add-runner [fill="#3A3F2E"]{fill:#737373;}
+  .add-runner circle[fill="#3A3F2E"], .add-runner rect[fill="#3A3F2E"]{fill:#d4d4d4;}
+  .category-tile .cat-name{font-size:14px;font-weight:600;color:var(--ink);}
+  .category-tile .cat-count{font-size:12px;color:var(--grey);margin-top:2px;}
   .category-active-bar{display:none;justify-content:space-between;align-items:center;margin-bottom:16px;animation:flowIn .35s ease;}
   .category-tile{animation:flowIn .4s cubic-bezier(.2,.8,.2,1) backwards;}
   .category-tile:nth-child(2){animation-delay:.03s;} .category-tile:nth-child(3){animation-delay:.06s;}
   .category-tile:nth-child(4){animation-delay:.09s;} .category-tile:nth-child(5){animation-delay:.12s;}
   .category-tile:nth-child(6){animation-delay:.15s;} .category-tile:nth-child(n+7){animation-delay:.18s;}
-  .category-back{cursor:pointer;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--grey);display:flex;align-items:center;gap:6px;}
-  .category-back:hover{color:var(--ink);}
-  .category-active-label{font-size:15px;font-weight:bold;}
+  .category-back{cursor:pointer;font-size:13px;font-weight:500;color:var(--grey);display:flex;align-items:center;gap:6px;
+    background:var(--panel);padding:6px 14px;border-radius:999px;transition:background .15s ease,color .15s ease;}
+  .category-back:hover{color:var(--ink);background:var(--panel-hover);}
+  .category-active-label{font-size:17px;font-weight:600;letter-spacing:-.01em;}
 
   /* Category character animations — resting pose by default, only plays while actually hovered
      (never an always-looping idle animation, see the design discussion this was built from). Each
@@ -221,12 +258,61 @@
   #quoteSidebar{position:fixed;top:50%;right:28px;transform:translateY(-50%);width:220px;
     display:none;text-align:right;}
   @media (min-width:1240px){ #quoteSidebar{display:block;} }
-  #quoteSidebar .q{font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:15px;
+  #quoteSidebar .q{font-size:15px;font-weight:500;letter-spacing:-.01em;
     line-height:1.5;color:var(--grey);opacity:0;transition:opacity 1s ease;}
   #quoteSidebar .q.show{opacity:1;}
-  #quoteSidebar .attr{font-family:Helvetica,Arial,sans-serif;font-style:normal;font-size:11px;
-    letter-spacing:1px;text-transform:uppercase;color:var(--brand-green);margin-top:10px;display:block;}
+  #quoteSidebar .attr{font-size:12px;font-weight:500;color:#6b6b6b;margin-top:10px;display:block;}
+
+  /* Allowance meter — full-width row under the three balance stats. The lighter "pending" segment
+     previews what the current cart would use, so staff see the effect before they confirm. */
+  .allowance-meter{flex-basis:100%;background:var(--card);border:1px solid var(--line);border-radius:var(--radius-inner);padding:14px 18px;}
+  .allowance-meter .meter-text{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--grey);margin-bottom:8px;}
+  .allowance-meter .meter-text strong{color:var(--ink);font-weight:600;}
+  .allowance-meter .meter-track{display:flex;background:var(--panel);border-radius:999px;height:8px;overflow:hidden;}
+  .allowance-meter .meter-used{background:var(--brand-green);transition:width .4s ease;}
+  .allowance-meter .meter-pending{background:repeating-linear-gradient(45deg,#6b6b6b 0 4px,#525252 4px 8px);transition:width .4s ease;}
+  .allowance-meter.over .meter-pending{background:var(--bad);}
+  .allowance-meter.over .meter-text .meter-note{color:var(--bad);}
+
+  /* PIN pad — the real password input sits invisibly over the dots, so typing, pasting and
+     password-manager autofill all still work; the on-screen keys just write into that same input. */
+  .pin-pad{display:flex;flex-direction:column;align-items:center;gap:16px;}
+  .pin-dots-wrap{position:relative;padding:10px 18px;border-radius:999px;background:var(--panel);border:1px solid transparent;transition:border-color .15s ease;}
+  .pin-dots-wrap:focus-within{border-color:rgba(255,255,255,.28);}
+  .pin-dots{display:flex;gap:14px;}
+  .pin-dots span{width:12px;height:12px;border-radius:50%;border:1.5px solid var(--grey);transition:background .12s ease,border-color .12s ease,transform .12s ease;}
+  .pin-dots span.filled{background:var(--ink);border-color:var(--ink);transform:scale(1.1);}
+  .pin-pad .pin-input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0;}
+  .pin-keys{display:grid;grid-template-columns:repeat(3,64px);gap:10px;}
+  .pin-keys button{height:52px;border:none;border-radius:999px;background:var(--panel);color:var(--ink);font-family:inherit;
+    font-size:20px;font-weight:500;cursor:pointer;transition:background .12s ease,transform .08s ease;-webkit-tap-highlight-color:transparent;}
+  .pin-keys button:hover{background:var(--panel-hover);}
+  .pin-keys button:active{transform:scale(.94);}
+  .pin-keys button.aux{background:none;font-size:13px;color:var(--grey);}
+  .pin-keys button.aux:hover{color:var(--ink);background:var(--panel);}
+  .pin-pad.shake .pin-dots-wrap{animation:pinShake .4s ease;border-color:var(--bad);}
+  .pin-pad.shake .pin-dots span{border-color:var(--bad);}
+  @keyframes pinShake{0%,100%{transform:translateX(0);}20%,60%{transform:translateX(-8px);}40%,80%{transform:translateX(8px);}}
+
+  /* Notyf toasts restyled to match the old pill toast */
+  .notyf__toast.fom-toast{border-radius:999px;padding:0 6px;box-shadow:0 8px 30px rgba(0,0,0,.4);max-width:90vw;}
+  .notyf__toast.fom-toast .notyf__wrapper{padding:12px 14px;}
+  .notyf__toast.fom-toast .notyf__message{font-family:'Inter',system-ui,sans-serif;font-size:13px;font-weight:500;color:var(--cream);}
+  .notyf__toast.fom-toast.err .notyf__message{color:#1a0505;}
+  .notyf__toast.fom-toast .notyf__ripple{display:none;}
+
+  /* SweetAlert2 confirm dialogs in the app's dark card style */
+  .swal2-popup.fom-swal{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:var(--radius-card);
+    font-family:'Inter',system-ui,sans-serif;padding:28px 24px 24px;}
+  .fom-swal .swal2-title{font-size:18px;font-weight:600;letter-spacing:-.01em;color:var(--ink);padding:0;}
+  .fom-swal .swal2-html-container{font-size:14px;line-height:1.55;color:var(--grey);white-space:pre-line;margin:12px 0 0;padding:0;}
+  .fom-swal .swal2-actions{gap:10px;margin-top:22px;width:100%;flex-wrap:nowrap;}
+  .fom-swal .swal2-actions button{flex:1;margin:0;}
+  .fom-swal .swal2-actions button.primary{margin-top:0;}
+  .fom-swal .swal2-actions button.primary.danger{background:var(--bad);color:#1a0505;}
+  .swal2-container.swal2-backdrop-show{background:rgba(0,0,0,.7);}
 </style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf@3.10.0/notyf.min.css">
 </head>
 <body>
 
@@ -257,8 +343,10 @@
 
   <!-- LOGIN VIEW -->
   <div id="view-login" class="view active">
-    <div class="lock">
-      <img src="https://www.freedomofmovement.co.za/cdn/shop/files/FOM_4a277dc0-1749-4e5c-92ce-3fccd1ec7e55.png?v=1760905009&width=140" alt="FOM" style="height:24px;margin-bottom:24px">
+    <div class="lock login-card">
+      <img src="https://www.freedomofmovement.co.za/cdn/shop/files/FOM_4a277dc0-1749-4e5c-92ce-3fccd1ec7e55.png?v=1760905009&width=140" alt="FOM" style="height:24px;margin-bottom:8px">
+      <h2 style="margin:0 0 4px">Staff Allowance</h2>
+      <p style="font-size:14px;color:var(--grey);margin:0 0 24px">Log in with your work email and PIN.</p>
 
       <div id="loginFormWrap">
         <div class="field">
@@ -266,8 +354,19 @@
           <input type="text" id="loginEmail" placeholder="name@freedomofmovement.co.za" onkeydown="if(event.key==='Enter') login()">
         </div>
         <div class="field">
-          <label>PIN</label>
-          <input type="password" id="loginPin" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6-digit PIN" onkeydown="if(event.key==='Enter') login()">
+          <label for="loginPin">PIN</label>
+          <div class="pin-pad" id="loginPinPad" data-submit="login">
+            <div class="pin-dots-wrap">
+              <div class="pin-dots" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+              <input type="password" id="loginPin" class="pin-input" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="current-password" aria-label="6-digit PIN" onkeydown="if(event.key==='Enter') login()">
+            </div>
+            <div class="pin-keys">
+              <button type="button" data-key="1">1</button><button type="button" data-key="2">2</button><button type="button" data-key="3">3</button>
+              <button type="button" data-key="4">4</button><button type="button" data-key="5">5</button><button type="button" data-key="6">6</button>
+              <button type="button" data-key="7">7</button><button type="button" data-key="8">8</button><button type="button" data-key="9">9</button>
+              <button type="button" data-key="clear" class="aux">Clear</button><button type="button" data-key="0">0</button><button type="button" data-key="back" class="aux" aria-label="Delete last digit">&#9003;</button>
+            </div>
+          </div>
         </div>
         <button class="primary" onclick="login()" id="loginBtn">Log In</button>
         <p style="font-size:12px;color:var(--grey);margin-top:16px">First time here? <a href="#" onclick="showSignup();return false;">Set up your PIN</a></p>
@@ -295,7 +394,7 @@
 
   <!-- ORDER VIEW -->
   <div id="view-order" class="view">
-    <div id="adminProxyBanner" style="display:none;background:var(--brand-green);padding:12px 16px;border-radius:4px;margin-bottom:18px;justify-content:space-between;align-items:center;gap:10px">
+    <div id="adminProxyBanner" style="display:none;background:var(--panel);padding:12px 12px 12px 20px;border-radius:999px;margin-bottom:18px;justify-content:space-between;align-items:center;gap:10px">
       <span style="font-size:13px">Placing an order for <strong id="adminProxyName"></strong> — they'll get the confirmation email, not you.</span>
       <button class="secondary" onclick="exitAdminOrder()">Exit</button>
     </div>
@@ -307,15 +406,6 @@
 
     <div id="orderContent" style="display:none">
       <div class="trail-banner-wrap">
-        <svg class="trail-banner" viewBox="0 0 448 120" preserveAspectRatio="xMidYMid slice">
-          <rect width="448" height="120" fill="#DCE3C7"/>
-          <rect x="0" y="70" width="448" height="50" fill="#9CAE7C"/>
-          <polygon points="60,90 130,30 200,90" fill="#7C9A5C"/>
-          <polygon points="150,90 230,45 310,90" fill="#6E8C52"/>
-          <circle cx="360" cy="35" r="18" fill="#F2D98A"/>
-          <path d="M0 100 Q 224 70 448 100" stroke="#C9B892" stroke-width="10" fill="none"/>
-        </svg>
-        <div class="trail-banner-scrim"></div>
         <div class="trail-banner-brand">
           <img src="https://www.freedomofmovement.co.za/cdn/shop/files/favicon.png?v=1760790002&width=80" alt="" class="trail-banner-icon">
           <div class="trail-banner-title">Freedom of movement</div>
@@ -324,9 +414,15 @@
       </div>
 
       <div id="balanceCard" class="balance-card" style="display:none">
-        <div class="stat" style="--stat-color:#2C5F8A;--stat-tint:#E1EBF3"><div class="label">Annual Allowance</div><div class="value" id="balAllowance">R0</div></div>
-        <div class="stat" id="balBalanceStat" style="--stat-color:#6E8C52;--stat-tint:#EAF0E3"><div class="label" id="balBalanceLabel">Balance Remaining</div><div class="value" id="balBalance">R0</div></div>
-        <div class="stat" style="--stat-color:#5B6470;--stat-tint:#E9EBEE"><div class="label">Period</div><div class="value" id="balPeriod">-</div></div>
+        <div class="stat"><div class="label">Annual Allowance</div><div class="value" id="balAllowance">R0</div></div>
+        <div class="stat" id="balBalanceStat"><div class="label" id="balBalanceLabel">Balance Remaining</div><div class="value" id="balBalance">R0</div></div>
+        <div class="stat"><div class="label">Period</div><div class="value" id="balPeriod">-</div></div>
+        <div class="allowance-meter" id="allowanceMeter" style="display:none">
+          <div class="meter-text"><span class="meter-note" id="meterNote"></span><strong id="meterPct"></strong></div>
+          <div class="meter-track" role="progressbar" aria-label="Allowance used" aria-valuemin="0" aria-valuemax="100" id="meterTrack">
+            <div class="meter-used" id="meterUsed" style="width:0"></div><div class="meter-pending" id="meterPending" style="width:0"></div>
+          </div>
+        </div>
       </div>
 
       <div id="departmentView" style="display:none">
@@ -467,7 +563,7 @@
         <summary>Import Sale Pricing (Markdown, manual paste)</summary>
         <div class="admin-section-body">
           <p style="font-size:13px;color:var(--grey);margin-top:-8px">Fallback for a sale that isn't reflected on the website yet, or a one-off list. Paste rows as <strong>Style [tab] Discount% [tab] MD RSP</strong>, one per line. Matches by exact product name, which is less reliable than the live import above — use that instead when the sale is already live on the site.</p>
-          <textarea id="salePricingInput" rows="8" style="width:100%;font-family:monospace;font-size:12px;padding:10px;border:1px solid #ccc;border-radius:3px" placeholder="Ladies Barrel Denim - Indigo&#9;60%&#9;518.00"></textarea>
+          <textarea id="salePricingInput" rows="8" style="font-family:ui-monospace,Consolas,monospace;font-size:12px" placeholder="Ladies Barrel Denim - Indigo&#9;60%&#9;518.00"></textarea>
           <button class="secondary" style="margin-top:10px" onclick="previewSalePricing()">Preview Changes</button>
           <div id="salePricingStatus" style="font-size:13px;margin-top:10px;color:var(--grey)"></div>
           <div id="salePricingPreview" style="margin-top:10px;overflow-x:auto"></div>
@@ -553,6 +649,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/notyf@3.10.0/notyf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.14.5/dist/sweetalert2.all.min.js"></script>
 <script src="config.js"></script>
 <script>
 document.title = document.title; // no-op, keeps head tidy
@@ -598,6 +696,7 @@ async function login(){
   const pin = document.getElementById('loginPin').value.trim();
   if(!email || !pin){ toast('Enter your email and PIN', true); return; }
   const btn = document.getElementById('loginBtn');
+  if(btn.disabled) return; // the PIN pad auto-submits on the 6th digit, so Enter/click could double up
   btn.disabled = true; btn.textContent = 'Logging in...';
   try{
     const { error } = await supa.auth.signInWithPassword({ email, password: pin });
@@ -606,6 +705,7 @@ async function login(){
   }catch(e){
     console.error(e);
     toast('Incorrect email or PIN', true);
+    pinPadError('loginPinPad');
   }finally{
     btn.disabled = false; btn.textContent = 'Log In';
   }
@@ -621,9 +721,11 @@ function showLogin(){
   document.getElementById('loginFormWrap').style.display = 'block';
 }
 
-// Self-service: anyone can create their own login this way (no admin step, no email sent). RLS
-// still only ever lets whoever's logged in see the one staff row matching their own email, so the
-// only thing at stake here is *which* email someone claims — not what they can see once they have.
+// Self-service signup. The staff row is linked purely by email, so the person must prove they own
+// that inbox: with "Confirm email" switched on in Supabase (Authentication -> Sign In / Providers ->
+// Email), signUp() returns no session and Supabase emails a confirmation link — only after clicking
+// it can they log in. Without that setting, anyone could register a colleague's address first and
+// spend their allowance.
 async function signup(){
   const email = document.getElementById('signupEmail').value.trim().toLowerCase();
   const pin = document.getElementById('signupPin').value.trim();
@@ -634,7 +736,10 @@ async function signup(){
   const btn = document.getElementById('signupBtn');
   btn.disabled = true; btn.textContent = 'Creating...';
   try{
-    const { error } = await supa.auth.signUp({ email, password: pin });
+    const { data, error } = await supa.auth.signUp({
+      email, password: pin,
+      options: { emailRedirectTo: window.location.origin + window.location.pathname }
+    });
     if(error){
       if(/already registered|already exists/i.test(error.message)){
         toast('An account already exists for that email — use Log In instead', true);
@@ -643,6 +748,15 @@ async function signup(){
         return;
       }
       throw error;
+    }
+    if(!data.session){
+      // email confirmation is on: nothing is usable until they click the link in their inbox
+      // (Supabase deliberately gives the same response for an already-registered email, so this
+      // message can't be used to find out who has an account)
+      await confirmDialog('We\'ve sent a confirmation link to '+email+'.\n\nOpen it on this device, then log in with your email and the PIN you just chose.', {title:'Check your email', confirmText:'OK', noCancel:true});
+      showLogin();
+      document.getElementById('loginEmail').value = email;
+      return;
     }
     // onAuthStateChange fires handleAuthChange automatically once signed in
   }catch(e){
@@ -682,6 +796,7 @@ async function handleAuthChange(){
 }
 
 async function boot(){
+  document.querySelectorAll('.pin-pad').forEach(initPinPad);
   if(CONFIG.EMAILJS_PUBLIC_KEY && window.emailjs) emailjs.init({publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
   document.getElementById('discountPctLabel').textContent = Math.round(CONFIG.DISCOUNT_RATE*100);
   const { data } = await supa.auth.getSession();
@@ -700,10 +815,114 @@ async function boot(){
   await handleAuthChange();
 }
 
+// Notyf stacks toasts instead of overwriting one shared element (the old version's timer from an
+// earlier toast could hide a newer one early). Falls back to the plain #toast if the CDN didn't load.
+const notyf = window.Notyf ? new Notyf({
+  duration: 3200, ripple: false, dismissible: false,
+  position: {x:'center', y:'bottom'},
+  types: [
+    {type:'success', className:'fom-toast', background:'var(--ink)', icon:false},
+    {type:'error', className:'fom-toast err', background:'var(--bad)', icon:false, duration:4500}
+  ]
+}) : null;
+
 function toast(msg, isErr){
+  if(notyf){
+    // Notyf renders the message as HTML, and toasts include product/staff names — always escape
+    notyf.open({type: isErr ? 'error' : 'success', message: escapeHtml(msg)});
+    return;
+  }
   const t = document.getElementById('toast');
   t.textContent = msg; t.className = 'toast show'+(isErr?' err':'');
-  setTimeout(()=>t.className='toast', 3200);
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(()=>t.className='toast', 3200);
+}
+
+// Promise-based replacement for window.confirm(). Uses `text` (not `html`) so names and product
+// titles in the message can never inject markup; \n line breaks still show via pre-line CSS.
+async function confirmDialog(message, opts){
+  opts = opts || {};
+  if(!window.Swal) return confirm(message);
+  const res = await Swal.fire({
+    title: opts.title || 'Please confirm',
+    text: message,
+    showCancelButton: !opts.noCancel,
+    confirmButtonText: opts.confirmText || 'Yes, continue',
+    cancelButtonText: 'Cancel',
+    reverseButtons: true,
+    focusCancel: !!opts.danger,
+    buttonsStyling: false,
+    customClass: { popup:'fom-swal', confirmButton:'primary'+(opts.danger?' danger':''), cancelButton:'secondary' }
+  });
+  return res.isConfirmed;
+}
+
+// ---------------- PIN PAD ----------------
+function initPinPad(pad){
+  const input = pad.querySelector('.pin-input');
+  const dots = Array.from(pad.querySelectorAll('.pin-dots span'));
+  const len = Number(input.maxLength) || 6;
+  const sync = () => {
+    const clean = input.value.replace(/\D/g,'').slice(0, len);
+    if(clean !== input.value) input.value = clean;
+    dots.forEach((d,i) => d.classList.toggle('filled', i < clean.length));
+  };
+  const maybeSubmit = () => {
+    if(input.value.length === len && pad.dataset.submit && typeof window[pad.dataset.submit] === 'function') window[pad.dataset.submit]();
+  };
+  // typing/autofill only syncs the dots — auto-submit is reserved for the on-screen keys, so a
+  // password manager filling the field on page load doesn't log someone in before they've looked
+  input.addEventListener('input', () => { pad.classList.remove('shake'); sync(); });
+  pad.querySelectorAll('.pin-keys button').forEach(b => b.addEventListener('click', () => {
+    const k = b.dataset.key;
+    pad.classList.remove('shake');
+    if(k === 'back') input.value = input.value.slice(0,-1);
+    else if(k === 'clear') input.value = '';
+    else if(input.value.length < len) input.value += k;
+    if(navigator.vibrate) navigator.vibrate(8);
+    sync();
+    if(k !== 'back' && k !== 'clear') maybeSubmit();
+  }));
+  pad._sync = sync;
+  sync();
+}
+
+function pinPadError(padId){
+  const pad = document.getElementById(padId);
+  if(!pad) return;
+  pad.querySelector('.pin-input').value = '';
+  if(pad._sync) pad._sync();
+  pad.classList.remove('shake');
+  void pad.offsetWidth; // restart the animation if it's already mid-shake
+  pad.classList.add('shake');
+  if(navigator.vibrate) navigator.vibrate([60,40,60]);
+}
+
+// ---------------- ALLOWANCE METER ----------------
+// pending = what the current cart would take off the allowance (0 when there's no allowance cart)
+function updateAllowanceMeter(pending){
+  const meter = document.getElementById('allowanceMeter');
+  if(!meter) return;
+  if(!selectedStaff || !(selectedStaff.allowance > 0)){ meter.style.display = 'none'; return; }
+  pending = Math.max(0, Number(pending)||0);
+  const allowance = Number(selectedStaff.allowance);
+  const balance = Number(selectedStaff.balance);
+  const used = Math.max(0, allowance - balance);
+  const clamp = v => Math.min(100, Math.max(0, v));
+  const usedPct = clamp(used / allowance * 100);
+  const pendingPct = clamp((used + pending) / allowance * 100) - usedPct;
+  const over = pending > 0 && pending > balance;
+  meter.style.display = 'block';
+  meter.classList.toggle('over', over);
+  document.getElementById('meterUsed').style.width = usedPct+'%';
+  document.getElementById('meterPending').style.width = pendingPct+'%';
+  document.getElementById('meterTrack').setAttribute('aria-valuenow', Math.round(usedPct + pendingPct));
+  let note;
+  if(over) note = 'This order is R'+money(pending - Math.max(0, balance))+' more than your remaining balance';
+  else if(pending > 0) note = 'After this order: R'+money(balance - pending)+' left';
+  else note = 'R'+money(used)+' used of R'+money(allowance);
+  document.getElementById('meterNote').textContent = note;
+  document.getElementById('meterPct').textContent = Math.round(usedPct + pendingPct)+'% used';
 }
 
 function money(n){ return Number(n||0).toLocaleString('en-ZA', {minimumFractionDigits:2, maximumFractionDigits:2}); }
@@ -887,7 +1106,7 @@ function buildDepartmentGrid(){
 }
 
 function tileHtml(label, meta, count, onclickFn, extraClass){
-  return '<div class="category-tile'+(extraClass?' '+extraClass:'')+'" style="--cat-color:'+meta.color+';--cat-tint:'+meta.tint+'" onclick="'+onclickFn+'(\''+label+'\')">'+
+  return '<div class="category-tile'+(extraClass?' '+extraClass:'')+'" style="--cat-color:'+meta.color+';--cat-tint:'+meta.tint+'" onclick="'+onclickFn+'('+jsArg(label)+')">'+
     '<div class="icon">'+meta.icon+'</div>'+
     '<div class="cat-name">'+label+'</div>'+
     '<div class="cat-count">'+count+' item'+(count===1?'':'s')+'</div>'+
@@ -996,11 +1215,11 @@ function renderBalanceCard(){
   balEl.textContent = 'R'+money(Math.abs(selectedStaff.balance));
   const isLow = selectedStaff.balance <= 0;
   const balStat = document.getElementById('balBalanceStat');
-  balStat.style.setProperty('--stat-color', isLow ? '#c0392b' : '#6E8C52');
-  balStat.style.setProperty('--stat-tint', isLow ? '#FBE3E1' : '#EAF0E3');
+  balStat.classList.toggle('low', isLow);
   document.getElementById('balPeriod').textContent = selectedStaff.period;
   document.getElementById('orderPanel').innerHTML = '';
   cart = [];
+  updateAllowanceMeter(0);
   clearFilter(); // back to the tile grids whenever the order screen is (re)entered for a staff member
 }
 
@@ -1023,7 +1242,6 @@ function onSearch(){
     const unpriced = !(Number(p.rsp) > 0);
     const disabled = out || unpriced;
     const statusText = unpriced ? 'Not priced yet' : (out ? 'Out of stock' : Math.floor(p.available)+' available');
-    const skuJs = p.sku.replace(/'/g,"\\'");
     const cat = categoryOf(p);
     const meta = CATEGORY_META[cat];
     // real photo once Admin has imported one for this SKU; otherwise fall back to the same
@@ -1038,13 +1256,23 @@ function onSearch(){
         '<div class="meta">SKU '+escapeHtml(p.sku)+' &middot; '+statusText+'</div>'+
         '<div class="foot">'+
           '<div class="rsp">'+(unpriced?'&mdash;':'R'+money(p.rsp))+'</div>'+
-          (disabled?'':'<button class="add" onclick="selectProduct(\''+skuJs+'\', this)">+ Add</button>')+
+          (disabled?'':'<button class="add" onclick="selectProduct('+jsArg(p.sku)+', this)">+ Add</button>')+
         '</div>'+
       '</div></div>';
   }).join('');
 }
 
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// A JS string literal that's safe to drop inside an HTML attribute like onclick="fn(...)":
+// JSON.stringify handles the JS escaping, escapeHtml stops a " or & from ending the attribute.
+// (The old .replace(/'/g,"\\'") only covered single quotes — a " in a SKU or name broke out.)
+function jsArg(v){ return escapeHtml(JSON.stringify(String(v))); }
+
+// Only ever link to https URLs — blocks javascript: and data: links stored in the database.
+function safeUrl(u){ return /^https:\/\//i.test(String(u||'')) ? escapeHtml(u) : '#'; }
+
+const MAX_LINE_QTY = 20; // matches the per-line cap in _order_plan() on the server
 
 function selectProduct(sku, btn){
   if(!selectedStaff){ toast('Your account isn\'t linked to a staff record yet', true); return; }
@@ -1055,7 +1283,10 @@ function selectProduct(sku, btn){
     return;
   }
   const existing = cart.find(c=>c.sku===sku);
-  if(existing) existing.qty += 1;
+  if(existing){
+    if(existing.qty >= MAX_LINE_QTY){ toast('Maximum '+MAX_LINE_QTY+' of one item per order', true); return; }
+    existing.qty += 1;
+  }
   else cart.push({sku:p.sku, product:p.product, rsp:Number(p.rsp), qty:1});
   if(cart.length === 1) orderType = selectedStaff.allowance > 0 ? 'allowance' : 'discount';
   renderCart();
@@ -1089,12 +1320,12 @@ function removeFromCart(sku){
 
 function updateCartQty(sku, qty){
   const item = cart.find(c=>c.sku===sku);
-  if(item) item.qty = Math.max(1, parseInt(qty)||1);
+  if(item) item.qty = Math.min(MAX_LINE_QTY, Math.max(1, parseInt(qty)||1));
   renderCartTotals();
 }
 
 function renderCart(){
-  if(!cart.length){ document.getElementById('orderPanel').innerHTML = ''; return; }
+  if(!cart.length){ document.getElementById('orderPanel').innerHTML = ''; updateAllowanceMeter(0); return; }
   const hasAllowance = selectedStaff.allowance > 0;
   const toggle = hasAllowance
     ? '<div class="type-toggle">'+
@@ -1106,15 +1337,15 @@ function renderCart(){
     '<div class="result-row" style="cursor:default">'+
       '<div><div class="name">'+escapeHtml(c.product)+'</div><div class="meta">SKU '+escapeHtml(c.sku)+' &middot; RSP R'+money(c.rsp)+'</div></div>'+
       '<div class="row-flex" style="gap:6px;align-items:center">'+
-        '<input type="number" min="1" value="'+c.qty+'" style="width:60px;padding:6px" onchange="updateCartQty(\''+c.sku.replace(/'/g,"\\'")+'\', this.value)">'+
-        '<button class="secondary" onclick="removeFromCart(\''+c.sku.replace(/'/g,"\\'")+'\')">Remove</button>'+
+        '<input type="number" min="1" max="'+MAX_LINE_QTY+'" value="'+c.qty+'" style="width:60px;padding:6px" onchange="updateCartQty('+jsArg(c.sku)+', this.value); this.value=(cart.find(x=>x.sku==='+jsArg(c.sku)+')||{}).qty||1">'+
+        '<button class="secondary" onclick="removeFromCart('+jsArg(c.sku)+')">Remove</button>'+
       '</div>'+
     '</div>'
   ).join('');
   document.getElementById('orderPanel').innerHTML =
     '<div class="order-panel">'+
       '<h3>Cart ('+cart.length+' item'+(cart.length>1?'s':'')+')</h3>'+
-      '<p style="font-size:12px;color:var(--grey);margin:-8px 0 16px">Search above and click <strong>+ Add</strong> to add more items to this order.</p>'+
+      '<p class="sub">Search above and click <strong>+ Add</strong> to add more items to this order.</p>'+
       '<div style="margin-bottom:16px">'+rows+'</div>'+
       toggle+
       '<div id="amounts"></div>'+
@@ -1138,6 +1369,7 @@ function cartTotals(){
 }
 
 function renderCartTotals(){
+  cartGroupId = null; // the cart changed, so it's a different order from any earlier attempt
   if(!cart.length) return;
   const {totalRsp, amount, label} = cartTotals();
   let html = '<div class="amount-row"><span>RSP total</span><span>R'+money(totalRsp)+'</span></div>';
@@ -1155,6 +1387,7 @@ function renderCartTotals(){
     }
   }
   document.getElementById('amounts').innerHTML = html;
+  updateAllowanceMeter(orderType === 'allowance' ? amount : 0);
 }
 
 // pulls a person's allowance purchases for the year so any email to them is a full statement,
@@ -1176,160 +1409,176 @@ async function buildAllowanceSummary(staffName, period, allowance){
   return { historyRows, totalUsed: money(totalUsed), totalAllowance: money(allowance) };
 }
 
+// Checkout goes through two database functions (see security-fix-migration.sql):
+//   quote_order  — prices the cart from the live catalog + balance, including any split
+//   place_order  — re-checks that quote under a row lock, writes the order rows and deducts the
+//                  balance in ONE transaction, so a failure can never leave half an order behind
+// The browser no longer decides prices, splits or balances — it only shows what the server says.
+// cartGroupId stays the same across retries of the same cart, so a double-click or a retry after a
+// timeout gets reported back as "already placed" instead of charging twice.
+let cartGroupId = null;
+let submittingOrder = false;
+
+function newOrderGroupId(){
+  const rand = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now()+'-'+Math.random().toString(36).slice(2));
+  return 'o-'+rand;
+}
+
+function orderErrorCode(e){
+  try{ return String(JSON.parse(e.message).message || ''); }catch(_){ return String((e && e.message) || ''); }
+}
+
+function orderErrorMessage(e){
+  const msg = orderErrorCode(e);
+  const detail = msg.includes(':') ? msg.slice(msg.indexOf(':')+1).trim() : '';
+  if(/^QUOTE_CHANGED/.test(msg)) return 'Your balance or a price changed while you were checking out — please review the cart and confirm again';
+  if(/^NO_BALANCE/.test(msg)) return 'No allowance balance left — switch to Staff Discount for this order';
+  if(/^NO_ALLOWANCE_COVER/.test(msg)) return 'Your remaining allowance doesn\'t cover even one of these items — switch to Staff Discount ('+Math.round(CONFIG.DISCOUNT_RATE*100)+'% off) instead';
+  if(/^OUT_OF_STOCK/.test(msg)) return (detail || 'An item')+' doesn\'t have enough stock for that quantity';
+  if(/^NOT_PRICED/.test(msg)) return (detail || 'An item')+' isn\'t priced yet — check with admin';
+  if(/^UNKNOWN_PRODUCT/.test(msg)) return 'An item in your cart is no longer in the catalog — please refresh the page';
+  if(/^BAD_QTY/.test(msg)) return 'Quantities must be between 1 and 20 per item';
+  if(/^NOT_PERMITTED/.test(msg)) return 'You\'re not allowed to place this order';
+  if(/RSP mismatch|Amount mismatch/i.test(msg)) return 'A price changed since you loaded this page — please refresh and try again';
+  return 'Something went wrong placing the order — please try again';
+}
+
 async function submitCart(){
-  if(!selectedStaff || !cart.length) return;
-  const {totalRsp, amount} = cartTotals();
-  const totalQty = cart.reduce((s,c)=>s+c.qty, 0);
-  const groupId = selectedStaff.name.replace(/\s+/g,'')+'-'+Date.now();
-
-  // Fetch the live balance once, up front, rather than trusting whatever was cached at page load
-  // — everything below (the split decision, the confirm dialog, the rows written, and the final
-  // deduction) is derived from this same fresh number, so what the person is told and what
-  // actually happens can't diverge from each other.
-  let balanceBefore = selectedStaff.balance;
-  if(orderType === 'allowance'){
-    const freshRows = await sb('GET','staff?select=balance&name=eq.'+encodeURIComponent(selectedStaff.name));
-    if(freshRows[0]) balanceBefore = Number(freshRows[0].balance);
-  }
-
-  // Split payment: if an allowance order costs more than what's left, use up the remaining
-  // balance and let the shortfall go through as a full-price pay-in — invoiced the same way a
-  // Staff Discount purchase is, since it's real money changing hands rather than allowance spend.
-  // Allocation works in whole units per cart line (not raw dollar amounts) so a multi-qty item
-  // that straddles the boundary splits into two rows with correct, non-overlapping quantities
-  // (e.g. qty 2 becomes a qty-1 allowance row + a qty-1 pay-in row, not two qty-2 rows).
-  let isSplit = false;
-  let rows;
-  let allowanceAmountTotal = amount;
-  let topupAmountTotal = 0;
-
-  if(orderType === 'allowance' && amount > balanceBefore){
-    if(balanceBefore <= 0){
-      toast('No allowance balance left for this order', true); return;
-    }
-    let remaining = balanceBefore;
-    let coveredTotal = 0, topupTotal = 0;
-    const splitRows = [];
-    cart.forEach(c => {
-      const coveredQty = c.rsp > 0 ? Math.min(c.qty, Math.floor(remaining / c.rsp)) : c.qty;
-      const topupQty = c.qty - coveredQty;
-      if(coveredQty > 0){
-        const amt = coveredQty * c.rsp;
-        coveredTotal += amt; remaining -= amt;
-        splitRows.push({ staff_name: selectedStaff.name, sku: c.sku, product: c.product, qty: coveredQty,
-          order_type: 'allowance', rsp: c.rsp, amount: amt, period: selectedStaff.period, order_group_id: groupId, is_topup: false });
-      }
-      if(topupQty > 0){
-        const amt = topupQty * c.rsp;
-        topupTotal += amt;
-        splitRows.push({ staff_name: selectedStaff.name, sku: c.sku, product: c.product, qty: topupQty,
-          order_type: 'discount', rsp: c.rsp, amount: amt, period: selectedStaff.period, order_group_id: groupId, is_topup: true });
-      }
-    });
-    const whose = adminProxyMode ? selectedStaff.name+'\'s' : 'Your';
-    const proceed = confirm(
-      whose+' allowance only covers R'+money(coveredTotal)+' of this R'+money(amount)+' order (in whole units).\n\n'+
-      'R'+money(coveredTotal)+' will be deducted from '+(adminProxyMode?'their':'your')+' allowance, and '+(adminProxyMode?'they\'ll':'you\'ll')+' pay in the remaining '+
-      'R'+money(topupTotal)+' at full price — invoiced separately, the same as a Staff Discount purchase.\n\nProceed?'
-    );
-    if(!proceed) return;
-    isSplit = true;
-    rows = splitRows;
-    allowanceAmountTotal = coveredTotal;
-    topupAmountTotal = topupTotal;
-  } else {
-    // PostgREST's bulk insert requires every row in the array to have identical keys, so
-    // is_topup must be present (and false) here too, not just on split rows
-    rows = cart.map(c => ({
-      staff_name: selectedStaff.name, sku: c.sku, product: c.product, qty: c.qty,
-      order_type: orderType, rsp: c.rsp,
-      amount: orderType === 'allowance' ? c.rsp*c.qty : c.rsp*c.qty*(1-CONFIG.DISCOUNT_RATE),
-      period: selectedStaff.period, order_group_id: groupId, is_topup: false
-    }));
-  }
-
+  if(!selectedStaff || !cart.length || submittingOrder) return;
+  submittingOrder = true;
   const btn = document.getElementById('submitBtn');
-  btn.disabled = true; btn.textContent = 'Placing order...';
+  const resetBtn = () => { if(btn){ btn.disabled = false; btn.textContent = 'Confirm Order'; } };
+  if(btn){ btn.disabled = true; btn.textContent = 'Checking...'; }
 
-  let balanceAfter = orderType === 'allowance' ? (balanceBefore - allowanceAmountTotal) : balanceBefore;
+  const staff = selectedStaff;
+  const type = orderType;
+  const items = cart.map(c => ({sku: c.sku, qty: c.qty}));
+  const cartSnapshot = cart.map(c => Object.assign({}, c));
+  if(!cartGroupId) cartGroupId = newOrderGroupId();
 
+  let result;
   try{
-    // orders saved first, balance touched only after that succeeds — so a failed insert never
-    // leaves a deducted balance with no order record to explain it
-    await sb('POST','orders', rows, {'Prefer':'return=minimal'});
-
-    if(orderType === 'allowance'){
-      // adjust_staff_balance() applies the delta atomically inside one UPDATE — even if the
-      // balance moved again between the fresh read above and now, this can never lose or double
-      // an adjustment the way a plain GET-then-PATCH-absolute-value would
-      balanceAfter = await sb('POST','rpc/adjust_staff_balance', { p_name: selectedStaff.name, p_delta: -allowanceAmountTotal });
-      selectedStaff.balance = balanceAfter;
-    }
-
-    const orderDate = new Date().toLocaleDateString('en-ZA', {year:'numeric',month:'long',day:'numeric'});
-    const toList = [selectedStaff.email, CONFIG.MANAGER_EMAIL, CONFIG.WAREHOUSE_EMAIL].filter((v,i,a)=>v && a.indexOf(v)===i).join(', ');
-    const itemsRows = cart.map(c => {
-      let item = c.product + (c.qty > 1 ? ' (x'+c.qty+')' : '');
-      if(item.length > 42) item = item.slice(0,41)+'…';
-      const lineAmt = orderType === 'allowance' ? c.rsp*c.qty : c.rsp*c.qty*(1-CONFIG.DISCOUNT_RATE);
-      return item.padEnd(44) + ('R'+money(lineAmt)).padStart(12);
-    }).join('\n') + (isSplit ? '\n'+'PAY IN (invoiced separately)'.padEnd(44)+('R'+money(topupAmountTotal)).padStart(12) : '');
-
-    // Staff Discount orders (and the pay-in portion of a split) don't confirm the customer
-    // immediately — that email only goes out once the Cin7 invoice is attached in the admin panel
-    // (via emailInvoiceLink). Admin still gets an immediate heads-up either way, reusing the same
-    // Discount Confirmation template with no invoice section (blank invoice fields render as nothing).
-    if(CONFIG.EMAILJS_PUBLIC_KEY && orderType === 'allowance'){
-      const summary = await buildAllowanceSummary(selectedStaff.name, selectedStaff.period, selectedStaff.allowance);
-
-      await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID, {
-        to_email: toList, email: toList, staff_name: selectedStaff.name, order_date: orderDate,
-        product: cart.length+' item'+(cart.length>1?'s':''), sku: '-', qty: totalQty,
-        order_type: 'Staff Allowance',
-        rsp: money(totalRsp), amount: money(allowanceAmountTotal),
-        balance_before: money(balanceBefore), balance_after: money(balanceAfter),
-        period: selectedStaff.period, total_allowance: summary.totalAllowance, total_used: summary.totalUsed,
-        history_rows: summary.historyRows, invoice_prefix: '', invoice_url: '', invoice_label: '', items_rows: itemsRows
-      }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
-
-      if(isSplit){
-        await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID_DISCOUNT || CONFIG.EMAILJS_TEMPLATE_ID, {
-          to_email: CONFIG.ADMIN_EMAIL, email: CONFIG.ADMIN_EMAIL, staff_name: selectedStaff.name, order_date: orderDate,
-          product: cart.length+' item'+(cart.length>1?'s':'')+' (allowance top-up)', sku: '-', qty: totalQty,
-          rsp: money(topupAmountTotal), discount_amount: '0,00', amount: money(topupAmountTotal),
-          items_rows: itemsRows, invoice_prefix: '', invoice_url: '', invoice_label: ''
-        }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
+    const quote = await sb('POST','rpc/quote_order', {p_staff_name: staff.name, p_order_type: type, p_items: items});
+    if(type === 'allowance'){
+      if(Number(quote.balance) <= 0) throw new Error('NO_BALANCE');
+      if(quote.is_split){
+        if(Number(quote.allowance_total) === 0) throw new Error('NO_ALLOWANCE_COVER');
+        const whose = adminProxyMode ? staff.name+'\'s' : 'Your';
+        const proceed = await confirmDialog(
+          whose+' allowance only covers R'+money(quote.allowance_total)+' of this R'+money(quote.total_rsp)+' order (in whole units).\n\n'+
+          'R'+money(quote.allowance_total)+' will be deducted from '+(adminProxyMode?'their':'your')+' allowance, and '+(adminProxyMode?'they\'ll':'you\'ll')+' pay in the remaining '+
+          'R'+money(quote.topup_total)+' at full price — invoiced separately, the same as a Staff Discount purchase.',
+          {title:'Split this order?', confirmText:'Place split order'}
+        );
+        if(!proceed){ resetBtn(); submittingOrder = false; return; }
       }
-    } else if(CONFIG.EMAILJS_PUBLIC_KEY && orderType === 'discount'){
-      const totalDiscount = totalRsp*CONFIG.DISCOUNT_RATE;
+    }
+    if(btn) btn.textContent = 'Placing order...';
+    result = await sb('POST','rpc/place_order', {
+      p_staff_name: staff.name, p_order_type: type, p_items: items, p_group_id: cartGroupId,
+      p_expected: {allowance_total: quote.allowance_total, topup_total: quote.topup_total, payable_total: quote.payable_total}
+    });
+  }catch(e){
+    console.error(e);
+    toast(orderErrorMessage(e), true);
+    resetBtn();
+    submittingOrder = false;
+    return;
+  }
+
+  // From here on the order IS placed and paid for — nothing below may make it look like it failed
+  // (that's what used to invite a second, double-charged attempt).
+  cartGroupId = null;
+  staff.balance = Number(result.balance_after);
+  renderBalanceCard(); // refreshes balance card and clears the cart
+  document.getElementById('productSearch').value = '';
+  document.getElementById('results').style.display = 'none';
+  const forWhom = adminProxyMode ? ' for '+staff.name : '';
+
+  if(result.status === 'duplicate'){
+    toast('That order was already placed'+forWhom+' — nothing was charged twice');
+    submittingOrder = false;
+    return;
+  }
+
+  let emailOk = true;
+  try{
+    await sendOrderEmails(staff, type, result, cartSnapshot);
+  }catch(e){
+    console.error('order email failed', e);
+    emailOk = false;
+  }
+  submittingOrder = false;
+
+  const isSplit = !!result.is_split;
+  if(!emailOk){
+    toast('Order confirmed'+forWhom+', but the confirmation email couldn\'t be sent — please let Musa know. Do not re-order.', true);
+  } else {
+    toast(isSplit
+      ? 'Order confirmed'+forWhom+' — R'+money(result.allowance_total)+' from allowance, R'+money(result.topup_total)+' pay-in invoiced separately.'
+      : type === 'allowance'
+        ? 'Order confirmed'+forWhom+' — confirmation email sent'+(adminProxyMode?' to them':'')+'. Dankie! Thank you! Danke! Shukran!'
+        : 'Order confirmed'+forWhom+' — email goes out once the invoice is attached. Dankie! Thank you! Danke! Shukran!');
+  }
+}
+
+// Builds the confirmation emails from what the server actually recorded (result.lines), not from
+// the cart — prices in the cart can be stale, the server's can't.
+async function sendOrderEmails(staff, type, result, cartSnapshot){
+  if(!CONFIG.EMAILJS_PUBLIC_KEY) return;
+  const lines = result.lines || [];
+  const bySku = [];
+  lines.forEach(l => {
+    let row = bySku.find(x => x.sku === l.sku);
+    if(!row){ row = {sku: l.sku, product: l.product, qty: 0, rspTotal: 0, amount: 0}; bySku.push(row); }
+    row.qty += Number(l.qty);
+    row.rspTotal += Number(l.rsp) * Number(l.qty);
+    row.amount += Number(l.amount);
+  });
+  const isSplit = !!result.is_split;
+  const totalQty = bySku.reduce((s,r)=>s+r.qty, 0);
+  const itemCountLabel = bySku.length+' item'+(bySku.length>1?'s':'');
+  const orderDate = new Date().toLocaleDateString('en-ZA', {year:'numeric',month:'long',day:'numeric'});
+  const toList = [staff.email, CONFIG.MANAGER_EMAIL, CONFIG.WAREHOUSE_EMAIL].filter((v,i,a)=>v && a.indexOf(v)===i).join(', ');
+  const itemsRows = bySku.map(r => {
+    let item = r.product + (r.qty > 1 ? ' (x'+r.qty+')' : '');
+    if(item.length > 42) item = item.slice(0,41)+'…';
+    // allowance orders list each line at full RSP (the split's pay-in is shown as its own line)
+    const lineAmt = type === 'allowance' ? r.rspTotal : r.amount;
+    return item.padEnd(44) + ('R'+money(lineAmt)).padStart(12);
+  }).join('\n') + (isSplit ? '\n'+'PAY IN (invoiced separately)'.padEnd(44)+('R'+money(result.topup_total)).padStart(12) : '');
+
+  // Staff Discount orders (and the pay-in portion of a split) don't confirm the customer
+  // immediately — that email only goes out once the Cin7 invoice is attached in the admin panel
+  // (via emailInvoiceLink). Admin still gets an immediate heads-up either way, reusing the same
+  // Discount Confirmation template with no invoice section (blank invoice fields render as nothing).
+  if(type === 'allowance'){
+    const summary = await buildAllowanceSummary(staff.name, staff.period, staff.allowance);
+    await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID, {
+      to_email: toList, email: toList, staff_name: staff.name, order_date: orderDate,
+      product: itemCountLabel, sku: '-', qty: totalQty,
+      order_type: 'Staff Allowance',
+      rsp: money(result.total_rsp), amount: money(result.allowance_total),
+      balance_before: money(result.balance_before), balance_after: money(result.balance_after),
+      period: staff.period, total_allowance: summary.totalAllowance, total_used: summary.totalUsed,
+      history_rows: summary.historyRows, invoice_prefix: '', invoice_url: '', invoice_label: '', items_rows: itemsRows
+    }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
+
+    if(isSplit){
       await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID_DISCOUNT || CONFIG.EMAILJS_TEMPLATE_ID, {
-        to_email: CONFIG.ADMIN_EMAIL, email: CONFIG.ADMIN_EMAIL, staff_name: selectedStaff.name, order_date: orderDate,
-        product: cart.length+' item'+(cart.length>1?'s':''), sku: '-', qty: totalQty,
-        rsp: money(totalRsp), discount_amount: money(totalDiscount), amount: money(amount),
+        to_email: CONFIG.ADMIN_EMAIL, email: CONFIG.ADMIN_EMAIL, staff_name: staff.name, order_date: orderDate,
+        product: itemCountLabel+' (allowance top-up)', sku: '-', qty: totalQty,
+        rsp: money(result.topup_total), discount_amount: '0,00', amount: money(result.topup_total),
         items_rows: itemsRows, invoice_prefix: '', invoice_url: '', invoice_label: ''
       }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
     }
-
-    renderBalanceCard(); // refreshes balance card and clears the cart
-    document.getElementById('productSearch').value = '';
-    document.getElementById('results').style.display = 'none';
-    const forWhom = adminProxyMode ? ' for '+selectedStaff.name : '';
-    toast(isSplit
-      ? 'Order confirmed'+forWhom+' — R'+money(allowanceAmountTotal)+' from allowance, R'+money(topupAmountTotal)+' pay-in invoiced separately.'
-      : orderType === 'allowance'
-        ? 'Order confirmed'+forWhom+' — confirmation email sent'+(adminProxyMode?' to them':'')+'. Dankie! Thank you! Danke! Shukran!'
-        : 'Order confirmed'+forWhom+' — email goes out once the invoice is attached. Dankie! Thank you! Danke! Shukran!');
-  }catch(e){
-    console.error(e);
-    // a price/amount mismatch means an item's price changed after it was added to the cart (the
-    // catalog only refreshes on login) — the database rejected it rather than silently charging
-    // the wrong amount, so tell the person to refresh rather than showing a generic error they
-    // can't act on
-    const stale = /RSP mismatch|Amount mismatch/i.test(e.message||'');
-    toast(stale
-      ? 'A price changed since you loaded this page — please refresh and try again'
-      : 'Something went wrong placing the order', true);
-    btn.disabled = false; btn.textContent = 'Confirm Order';
+  } else {
+    await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID_DISCOUNT || CONFIG.EMAILJS_TEMPLATE_ID, {
+      to_email: CONFIG.ADMIN_EMAIL, email: CONFIG.ADMIN_EMAIL, staff_name: staff.name, order_date: orderDate,
+      product: itemCountLabel, sku: '-', qty: totalQty,
+      rsp: money(result.total_rsp), discount_amount: money(Number(result.total_rsp) - Number(result.payable_total)), amount: money(result.payable_total),
+      items_rows: itemsRows, invoice_prefix: '', invoice_url: '', invoice_label: ''
+    }, {publicKey: CONFIG.EMAILJS_PUBLIC_KEY});
   }
 }
 
@@ -1372,8 +1621,8 @@ async function loadSpendOverview(){
   body.innerHTML = '<p style="font-size:13px;color:var(--grey)">Loading...</p>';
   try{
     const [orders, products] = await Promise.all([
-      sb('GET','orders?select=sku,amount,order_type,created_at&period=eq.'+encodeURIComponent(CONFIG.CURRENT_PERIOD)),
-      sb('GET','products?select=sku,category')
+      sbAll('orders?select=id,sku,amount,order_type,created_at&order=id.asc&period=eq.'+encodeURIComponent(CONFIG.CURRENT_PERIOD)),
+      sbAll('products?select=sku,category&order=sku.asc')
     ]);
     if(!orders.length){ body.innerHTML = '<p style="font-size:13px;color:var(--grey)">No orders yet this period.</p>'; return; }
 
@@ -1441,20 +1690,19 @@ function renderStaffTable(){
   const tbody = document.querySelector('#staffTable tbody');
   if(!rows.length){ tbody.innerHTML = '<tr><td colspan="6" class="empty">No staff match "'+escapeHtml(q)+'"</td></tr>'; return; }
   tbody.innerHTML = rows.map(s=>{
-    const safeName = s.name.replace(/'/g,"\\'");
     const emailInput = '<input type="text" value="'+escapeHtml(s.email||'')+'" placeholder="name@freedomofmovement.co.za" '+
-      'style="width:100%;padding:6px 8px;font-size:12px;border:1px solid #ccc;border-radius:3px" '+
-      'onblur="saveStaffEmail(\''+safeName+'\', this.value)">';
+      'style="width:100%;padding:6px 12px;font-size:12px" '+
+      'onblur="saveStaffEmail('+jsArg(s.name)+', this.value)">';
     const allowanceInput = '<input type="number" step="0.01" value="'+s.allowance+'" '+
-      'style="width:90px;padding:6px 8px;font-size:12px;border:1px solid #ccc;border-radius:3px" '+
-      'onblur="saveStaffAllowance(\''+safeName+'\', this.value, '+s.allowance+')">';
+      'style="width:90px;padding:6px 12px;font-size:12px" '+
+      'onblur="saveStaffAllowance('+jsArg(s.name)+', this.value, '+Number(s.allowance)+')">';
     const balanceInput = '<input type="number" step="0.01" value="'+s.balance+'" '+
-      'style="width:90px;padding:6px 8px;font-size:12px;border:1px solid #ccc;border-radius:3px'+(s.balance<0?';color:var(--bad)':'')+'" '+
-      'onblur="saveStaffBalance(\''+safeName+'\', this.value)">';
+      'style="width:90px;padding:6px 12px;font-size:12px'+(s.balance<0?';color:var(--bad)':'')+'" '+
+      'onblur="saveStaffBalance('+jsArg(s.name)+', this.value)">';
     return '<tr><td>'+escapeHtml(s.name)+'</td><td>'+emailInput+'</td><td>'+escapeHtml(s.period)+'</td><td>'+allowanceInput+'</td><td>'+balanceInput+'</td>'+
-      '<td><button class="secondary" onclick="startAdminOrder(\''+safeName+'\')">Place Order</button> '+
-      '<button class="secondary" onclick="sendBalanceCopy(\''+safeName+'\')">Send Balance</button> '+
-      '<button class="secondary" onclick="copyResetCommand(\''+safeName+'\')">Copy Reset Cmd</button></td></tr>';
+      '<td><button class="secondary" onclick="startAdminOrder('+jsArg(s.name)+')">Place Order</button> '+
+      '<button class="secondary" onclick="sendBalanceCopy('+jsArg(s.name)+')">Send Balance</button> '+
+      '<button class="secondary" onclick="copyResetCommand('+jsArg(s.name)+')">Copy Reset Cmd</button></td></tr>';
   }).join('');
 }
 
@@ -1515,7 +1763,7 @@ async function saveStaffAllowance(name, value, oldAllowance){
 async function saveStaffBalance(name, value){
   const balance = Number(value);
   if(isNaN(balance)){ toast('Enter a valid number', true); return; }
-  if(!confirm('Set '+name+'\'s balance to R'+money(balance)+'? This directly overrides their current balance.')) return;
+  if(!await confirmDialog('Set '+name+'\'s balance to R'+money(balance)+'? This directly overrides their current balance.', {title:'Override balance?', confirmText:'Set balance', danger:true})) return;
   try{
     const rows = await sb('GET','staff?select=balance&name=eq.'+encodeURIComponent(name));
     const oldBalance = rows[0] ? Number(rows[0].balance) : null;
@@ -1608,7 +1856,9 @@ function copyResetCommand(name){
   const s = staffTableRows.find(x=>x.name===name);
   if(!s){ toast('Could not find that staff member', true); return; }
   if(!s.email){ toast(name+' has no email on file', true); return; }
-  const cmd = '.\\admin-tool.ps1 -Action ResetPin -Emails '+s.email+' -Pins 123456';
+  // no -Pins: admin-tool.ps1 then generates a random PIN (a fixed one like 123456 is the first
+  // thing anyone would try against a freshly reset account)
+  const cmd = '.\\admin-tool.ps1 -Action ResetPin -Emails '+s.email;
   navigator.clipboard.writeText(cmd).then(()=>{
     toast('Reset command copied — paste into PowerShell');
   }).catch(()=>{
@@ -1619,14 +1869,16 @@ function copyResetCommand(name){
 async function startNewPeriod(){
   const period = document.getElementById('newPeriod').value.trim();
   if(!period){ toast('Enter a period label first', true); return; }
-  if(!confirm('Reset every staff member\'s balance back to their full allowance for period "'+period+'"? This cannot be undone.')) return;
-  const rows = await sb('GET','staff?select=name,allowance,balance,period');
-  for(const s of rows){
-    await sb('PATCH','staff?name=eq.'+encodeURIComponent(s.name), {balance: s.allowance, period});
-    await logAudit(s.name, 'balance', s.balance, s.allowance, 'period_reset');
-    if(s.period !== period) await logAudit(s.name, 'period', s.period, period, 'period_reset');
+  if(!await confirmDialog('Reset every staff member\'s balance back to their full allowance for period "'+period+'"? This cannot be undone.', {title:'Start a new period?', confirmText:'Reset all balances', danger:true})) return;
+  try{
+    // one database transaction for every staff row + its audit entries — a failure can no longer
+    // leave some people on the new period and some on the old one
+    const count = await sb('POST','rpc/start_new_period', { p_period: period });
+    toast('Balances reset for period '+period+' ('+count+' staff)');
+  }catch(e){
+    console.error(e);
+    toast('Could not start the new period — nothing was changed', true);
   }
-  toast('Balances reset for period '+period);
   loadStaffTable();
 }
 
@@ -1650,6 +1902,9 @@ async function importStockFile(){
   const availCol = header.indexOf('available') >= 0 ? header.indexOf('available') : header.indexOf('stock on hand');
   const locationCol = header.indexOf('location');
 
+  // without the catalog every SKU would look "new" and be written with rsp 0 — refuse rather than
+  // wipe prices if the catalog didn't load
+  if(!PRODUCTS.length){ status.textContent = 'The product catalog hasn\'t loaded — refresh the page before importing stock.'; return; }
   const existingBySku = {};
   PRODUCTS.forEach(p => existingBySku[p.sku] = p);
 
@@ -1659,6 +1914,7 @@ async function importStockFile(){
   const nonMerchProduct = /^(Repairs?[:\s]|Zebra |RFD40|RFID |3yrs Zebra|Power Supply Brick|DC Cable For|Personalisation:|.*license fees)/i;
 
   const updates = [];
+  const inserts = [];
   let skippedJunk = 0;
   let skippedLocation = 0;
   for(let i=headerIdx+1;i<rows.length;i++){
@@ -1674,27 +1930,44 @@ async function importStockFile(){
     if(nonMerchSku.test(sku) || nonMerchProduct.test(productName)){ skippedJunk++; continue; }
     const existing = existingBySku[sku];
     const available = availCol >= 0 ? Number(r[availCol])||0 : (existing? existing.available : 0);
-    updates.push({
-      sku, product: (productName||(existing?existing.product:'')), category: existing?existing.category:null,
-      subcat: existing?existing.subcat:null, rsp: existing? existing.rsp : 0, available, updated_at: new Date().toISOString()
-    });
+    // Existing products only get stock + name written. The upsert sets every column it's sent, so
+    // sending rsp/category from this page's cached copy used to revert prices changed since the
+    // page loaded (or zero them if the cache was stale). New SKUs start unpriced, as before.
+    if(existing){
+      updates.push({ sku, product: (productName||existing.product), available, updated_at: new Date().toISOString() });
+    } else {
+      inserts.push({ sku, product: productName || sku, category: null, subcat: null, rsp: 0, available, updated_at: new Date().toISOString() });
+    }
   }
 
   const skippedNote = locationCol >= 0
     ? (skippedJunk+' non-merchandise, '+skippedLocation+' non-HQ location rows skipped)')
     : (skippedJunk+' non-merchandise rows skipped)');
-  status.textContent = 'Updating '+updates.length+' products ('+skippedNote+'...';
+  const total = updates.length + inserts.length;
+  status.textContent = 'Updating '+total+' products ('+skippedNote+'...';
   const batchSize = 500;
-  for(let i=0;i<updates.length;i+=batchSize){
-    const batch = updates.slice(i,i+batchSize);
-    await sb('POST','products', batch, {'Prefer':'resolution=merge-duplicates,return=minimal'});
-    status.textContent = 'Updated '+Math.min(i+batchSize,updates.length)+' / '+updates.length+' products...';
+  let done = 0;
+  try{
+    // two separate passes: PostgREST bulk upserts need every row in a batch to have the same keys
+    for(const list of [updates, inserts]){
+      for(let i=0;i<list.length;i+=batchSize){
+        const batch = list.slice(i,i+batchSize);
+        await sb('POST','products', batch, {'Prefer':'resolution=merge-duplicates,return=minimal'});
+        done += batch.length;
+        status.textContent = 'Updated '+done+' / '+total+' products...';
+      }
+    }
+  }catch(e){
+    console.error(e);
+    status.textContent = 'Stopped after '+done+' / '+total+' products — '+(e.message||e)+'. Re-run the import to finish.';
+    toast('Stock import failed partway through', true);
+    return;
   }
-  status.textContent = 'Done — '+updates.length+' products updated. Reloading catalog...';
+  status.textContent = 'Done — '+total+' products updated. Reloading catalog...';
   PRODUCTS = await sbAll('products?select=*&order=product.asc');
   buildCategoryGrid();
   buildDepartmentGrid();
-  status.textContent = 'Stock import complete: '+updates.length+' products updated'+(locationCol>=0 ? ' (HQ only, '+skippedLocation+' other-location rows skipped)' : '')+'.';
+  status.textContent = 'Stock import complete: '+updates.length+' products updated, '+inserts.length+' new (unpriced)'+(locationCol>=0 ? ' (HQ only, '+skippedLocation+' other-location rows skipped)' : '')+'.';
 }
 
 // known spelling differences between the tracker spreadsheet and the staff table — same people,
@@ -1801,7 +2074,7 @@ async function previewAllowanceImport(){
 
 async function applyAllowanceImport(){
   if(!allowanceImportRows.length) return;
-  if(!confirm('Apply '+allowanceImportRows.length+' balance/allowance update(s)? This directly changes live balances.')) return;
+  if(!await confirmDialog('Apply '+allowanceImportRows.length+' balance/allowance update(s)? This directly changes live balances.')) return;
   const status = document.getElementById('allowanceImportStatus');
   const cents = v => Math.round(Number(v)*100); // matches the rounded diff already used to build this list
   try{
@@ -1841,8 +2114,8 @@ function onPriceSearch(){
     '<div class="result-row" style="cursor:default">'+
       '<div><div class="name">'+escapeHtml(p.product)+'</div><div class="meta">SKU '+escapeHtml(p.sku)+'</div></div>'+
       '<div class="row-flex" style="gap:6px">'+
-        '<input type="number" step="0.01" value="'+p.rsp+'" id="priceInput'+p.sku+'" style="width:100px;padding:8px">'+
-        '<button class="secondary" onclick="savePriceEdit(\''+p.sku.replace(/'/g,"\\'")+'\')">Save</button>'+
+        '<input type="number" step="0.01" value="'+p.rsp+'" id="priceInput'+escapeHtml(p.sku)+'" style="width:100px;padding:8px">'+
+        '<button class="secondary" onclick="savePriceEdit('+jsArg(p.sku)+')">Save</button>'+
       '</div>'+
     '</div>'
   ).join('');
@@ -1983,7 +2256,7 @@ async function previewCin7Pricing(){
 async function applyCin7Pricing(){
   const total = cin7PricingChanges.length + cin7PricingNewProducts.length;
   if(!total) return;
-  if(!confirm('Apply '+total+' change(s) ('+cin7PricingNewProducts.length+' new, '+cin7PricingChanges.length+' price updates)? This directly changes what staff pay/allowance is charged. Stock is not touched by this import.')) return;
+  if(!await confirmDialog('Apply '+total+' change(s) ('+cin7PricingNewProducts.length+' new, '+cin7PricingChanges.length+' price updates)? This directly changes what staff pay/allowance is charged. Stock is not touched by this import.')) return;
   const status = document.getElementById('cin7PricingStatus');
   try{
     const batchSize = 500;
@@ -2070,7 +2343,7 @@ async function previewPhotoImport(){
       previewDiv.innerHTML = '<table class="admin"><tr><th>Product</th><th>SKU</th><th>Photo</th></tr>'+
         changes.slice(0,200).map(c =>
           '<tr><td>'+escapeHtml(c.product)+'</td><td>'+escapeHtml(c.sku)+'</td>'+
-          '<td><img src="'+escapeHtml(c.newUrl)+'" style="width:40px;height:40px;object-fit:cover;border-radius:4px;vertical-align:middle" loading="lazy"></td></tr>'
+          '<td><img src="'+escapeHtml(c.newUrl)+'" style="width:40px;height:40px;object-fit:cover;border-radius:10px;vertical-align:middle" loading="lazy"></td></tr>'
         ).join('')+
         (changes.length>200 ? '<tr><td colspan="3" style="color:var(--grey)">+'+(changes.length-200)+' more not shown</td></tr>' : '')+
         '</table>';
@@ -2086,7 +2359,7 @@ async function previewPhotoImport(){
 
 async function applyPhotoImport(){
   if(!photoImportChanges.length) return;
-  if(!confirm('Apply '+photoImportChanges.length+' photo(s)? This only sets image_url — prices, stock and everything else stay untouched.')) return;
+  if(!await confirmDialog('Apply '+photoImportChanges.length+' photo(s)? This only sets image_url — prices, stock and everything else stay untouched.')) return;
   const status = document.getElementById('photoImportStatus');
   try{
     const batchSize = 500;
@@ -2181,7 +2454,7 @@ async function previewLiveSalePricing(){
 
 async function applyLiveSalePricing(){
   if(!liveSalePricingChanges.length) return;
-  if(!confirm('Apply '+liveSalePricingChanges.length+' sale price(s)? This directly changes what staff pay/allowance is charged. A later Cin7 pricing import will reset these back to full RSP once the sale ends there too.')) return;
+  if(!await confirmDialog('Apply '+liveSalePricingChanges.length+' sale price(s)? This directly changes what staff pay/allowance is charged. A later Cin7 pricing import will reset these back to full RSP once the sale ends there too.')) return;
   const status = document.getElementById('liveSalePricingStatus');
   try{
     const batchSize = 500;
@@ -2283,7 +2556,7 @@ function previewSalePricing(){
 
 async function applySalePricing(){
   if(!salePricingChanges.length) return;
-  if(!confirm('Apply '+salePricingChanges.length+' price update(s)? This directly changes what staff pay/allowance is charged.')) return;
+  if(!await confirmDialog('Apply '+salePricingChanges.length+' price update(s)? This directly changes what staff pay/allowance is charged.')) return;
   const status = document.getElementById('salePricingStatus');
   try{
     for(const c of salePricingChanges){
@@ -2327,7 +2600,7 @@ function itemsCellHtml(g, scope){
   return '<div class="item-count">'+g.orders.length+' items</div><div class="item-list">'+
     g.orders.map(o=>
       '<div class="item-row"><span>'+escapeHtml(o.product)+(o.qty>1?' (x'+o.qty+')':'')+'</span>'+
-      '<button class="item-remove" onclick="removeOrderItem('+o.id+',\''+g.key+'\',\''+scope+'\')">Remove</button></div>'
+      '<button class="item-remove" onclick="removeOrderItem('+Number(o.id)+','+jsArg(g.key)+','+jsArg(scope)+')">Remove</button></div>'
     ).join('')+
   '</div>';
 }
@@ -2343,14 +2616,13 @@ async function removeOrderItem(orderId, groupKey, scope){
   const confirmMsg = 'Remove "'+order.product+'" from this order?'
     +(willRefund ? ' R'+money(refundAmt)+' will be refunded to '+order.staff_name+"'s balance." : ' No balance change — this was a discount/pay-in item.')
     +' The rest of the order stays as-is.';
-  if(!confirm(confirmMsg)) return;
+  if(!await confirmDialog(confirmMsg, {title:'Remove item?', confirmText:'Remove item', danger:true})) return;
   try{
-    if(willRefund){
-      const newBalance = await sb('POST','rpc/adjust_staff_balance', { p_name: order.staff_name, p_delta: refundAmt });
-      await logAudit(order.staff_name, 'balance', newBalance - refundAmt, newBalance, 'order_item_removed');
-    }
-    await sb('DELETE','orders?id=eq.'+order.id, null, {'Prefer':'return=minimal'});
-    toast('Item removed'+(willRefund?' and refunded':'')+' — add the exchange as a new order');
+    // delete + refund + audit happen together in one database transaction, and the refund is
+    // worked out from the row actually deleted — so a retry or double click can't refund twice
+    const res = await sb('POST','rpc/admin_delete_orders', { p_ids: [order.id], p_source: 'order_item_removed' });
+    if(!res.deleted){ toast('That item was already removed', true); }
+    else toast('Item removed'+(res.refunded>0?' and R'+money(res.refunded)+' refunded':'')+' — add the exchange as a new order');
     loadOrderHistory();
     loadDiscountReport();
     loadStaffTable();
@@ -2363,8 +2635,8 @@ async function removeOrderItem(orderId, groupKey, scope){
 function invoiceCellHtml(g, scope){
   const inputId = 'invFile-'+scope+'-'+g.key;
   return g.invoice_url
-    ? '<a href="'+g.invoice_url+'" target="_blank">View</a> &middot; <button class="secondary" onclick="emailInvoiceLink(\''+g.key+'\',\''+scope+'\')">Email</button>'
-    : '<input type="file" accept="application/pdf" id="'+inputId+'" style="max-width:110px;font-size:11px"> <button class="secondary" onclick="uploadInvoice(\''+g.key+'\',\''+scope+'\')">Upload</button>';
+    ? '<a href="'+safeUrl(g.invoice_url)+'" target="_blank" rel="noopener noreferrer">View</a> &middot; <button class="secondary" onclick="emailInvoiceLink('+jsArg(g.key)+','+jsArg(scope)+')">Email</button>'
+    : '<input type="file" accept="application/pdf" id="'+escapeHtml(inputId)+'" style="max-width:110px;font-size:11px"> <button class="secondary" onclick="uploadInvoice('+jsArg(g.key)+','+jsArg(scope)+')">Upload</button>';
 }
 
 let discountRows = [];
@@ -2386,7 +2658,7 @@ async function loadDiscountReport(){
     return '<tr><td>'+new Date(g.created_at).toLocaleDateString('en-ZA')+'</td><td>'+escapeHtml(g.staff_name)+'</td>'+
       '<td>'+productLabel+'</td><td>'+totalQty+'</td><td>R'+money(totalRsp)+'</td>'+
       '<td>R'+money(totalDiscount)+'</td><td>R'+money(totalPayable)+'</td><td>'+invoiceCellHtml(g,'discount')+'</td>'+
-      '<td><button class="secondary" onclick="deleteCartGroup(\''+g.key+'\')">Delete</button></td></tr>';
+      '<td><button class="secondary" onclick="deleteCartGroup('+jsArg(g.key)+')">Delete</button></td></tr>';
   }).join('');
   const totalRsp = discountRows.reduce((s,o)=>s+o.rsp*o.qty,0);
   const totalPayable = discountRows.reduce((s,o)=>s+Number(o.amount),0);
@@ -2497,7 +2769,7 @@ async function loadOrderHistory(){
       '<td>'+productLabel+'</td><td>'+totalQty+'</td>'+
       '<td>'+typeLabel+'</td><td>R'+money(totalAmount)+'</td>'+
       '<td>'+invoiceCell+'</td>'+
-      '<td><button class="secondary" onclick="deleteCartGroup(\''+g.key+'\')">Cancel</button></td></tr>';
+      '<td><button class="secondary" onclick="deleteCartGroup('+jsArg(g.key)+')">Cancel</button></td></tr>';
   }).join('');
 }
 
@@ -2525,18 +2797,13 @@ async function deleteCartGroup(groupKey){
     : 'Delete this order ('+itemCount+') for '+first.staff_name+'?'
       +(willRefund ? ' R'+money(refundTotal)+' will be refunded to their balance.' : '')
       +(isSplitGroup ? ' This was a split purchase — only the allowance portion refunds; any pay-in amount is not refunded automatically.' : '');
-  if(!confirm(confirmMsg)) return;
+  if(!await confirmDialog(confirmMsg, {title:'Delete order?', confirmText:'Delete order', danger:true})) return;
   try{
-    if(willRefund){
-      // adjust_staff_balance() applies this atomically; also logged since the orders rows this
-      // refund is deducted from are about to be deleted in the next step, and once gone they can
-      // no longer stand in as the "why did this balance change" record on their own
-      const newBalance = await sb('POST','rpc/adjust_staff_balance', { p_name: first.staff_name, p_delta: refundTotal });
-      await logAudit(first.staff_name, 'balance', newBalance - refundTotal, newBalance, 'order_cancelled');
-    }
-    const ids = orders.map(o=>o.id).join(',');
-    await sb('DELETE','orders?id=in.('+ids+')', null, {'Prefer':'return=minimal'});
-    toast(first.is_historical ? 'Historical record deleted' : 'Order deleted'+(willRefund?' and balance refunded':''));
+    // delete + refund + audit in one database transaction (admin_delete_orders); the refund comes
+    // from the rows actually deleted, so a second click finds nothing left and refunds nothing
+    const res = await sb('POST','rpc/admin_delete_orders', { p_ids: orders.map(o=>o.id), p_source: 'order_cancelled' });
+    if(!res.deleted) toast('That order was already deleted', true);
+    else toast(first.is_historical ? 'Historical record deleted' : 'Order deleted'+(res.refunded>0?' and R'+money(res.refunded)+' refunded':''));
     loadOrderHistory();
     loadDiscountReport();
     loadStaffTable();

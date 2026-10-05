@@ -13,8 +13,9 @@
 #     .\admin-tool.ps1 -Action List
 #
 #   Reset (or create) a PIN for one or more people — generates a random 6-digit PIN unless you
-#   pass -Pins explicitly. Use this if someone forgot their PIN, or you want to set one up for
-#   them yourself instead of them self-registering:
+#   pass -Pins explicitly (avoid that: PINs typed on the command line end up in your PowerShell
+#   history). Use this if someone forgot their PIN, or you want to set one up for them yourself
+#   instead of them self-registering:
 #     .\admin-tool.ps1 -Action ResetPin -Emails kyle@freedomofmovement.co.za
 #     .\admin-tool.ps1 -Action ResetPin -Emails a@freedomofmovement.co.za,b@freedomofmovement.co.za
 #
@@ -53,7 +54,16 @@ function Get-AllAuthUsers {
   return $all
 }
 
-function New-Pin { -join ((1..6) | ForEach-Object { Get-Random -Minimum 0 -Maximum 10 }) }
+# Cryptographically random (Get-Random is predictable), and never a trivially guessable pattern.
+function New-Pin {
+  $weak = '^(\d)\1{5}$|^(012345|123456|234567|345678|456789|987654|876543|765432|654321|543210|121212|112233|696969|123123)$'
+  do {
+    $bytes = [byte[]]::new(4)
+    [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+    $pin = ([BitConverter]::ToUInt32($bytes, 0) % 1000000).ToString('D6')
+  } while($pin -match $weak)
+  return $pin
+}
 
 if($Action -eq 'List'){
   Write-Output "Fetching staff and login accounts..."
@@ -107,6 +117,7 @@ if($Action -eq 'ResetPin'){
   for($i=0; $i -lt $emailList.Count; $i++){
     $email = $emailList[$i]
     $pin = if($i -lt $Pins.Count){ $Pins[$i] } else { New-Pin }
+    if($pin -notmatch '^\d{6}$'){ Write-Output "SKIPPED $email - PIN must be exactly 6 digits"; continue }
     try{
       $u = $authByEmail[$email]
       if($u){
@@ -128,8 +139,11 @@ if($Action -eq 'ResetPin'){
     }
   }
   if($results.Count -gt 0){
-    $outFile = ".\pin-reset-$(Get-Date -Format yyyyMMdd-HHmmss).csv"
+    # Saved next to this script (covered by .gitignore), not whatever folder the terminal happens to
+    # be in. It still contains live PINs and this folder syncs to OneDrive — delete it once shared.
+    $outFile = Join-Path $PSScriptRoot "pin-reset-$(Get-Date -Format yyyyMMdd-HHmmss).csv"
     $results | Export-Csv -Path $outFile -NoTypeInformation
-    Write-Output "`nSaved to $outFile - share the PIN with that person privately, then delete the file."
+    Write-Output "`nSaved to $outFile"
+    Write-Output "Share each PIN with that person privately, then DELETE this file (it holds working PINs)."
   }
 }

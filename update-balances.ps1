@@ -36,27 +36,42 @@ function Normalize-Name([string]$n){
 }
 
 Write-Output "Reading $Path ..."
+$target = @{}
+$skippedBlank = @()
+$duplicates = @()
 $excel = New-Object -ComObject Excel.Application
 $excel.Visible = $false
-$wb = $excel.Workbooks.Open($Path)
-$ws = $wb.Worksheets.Item("Summary")
-$vals = $ws.UsedRange.Value2
-$rowCount = $vals.GetLength(0)
-$target = @{}
-for($r=1; $r -le $rowCount; $r++){
-  $name = $vals[$r,1]
-  $allowance = $vals[$r,2]
-  $balance = $vals[$r,3]
-  if(-not $name){ continue }
-  if($name -eq 'Staff Member'){ continue } # header row
-  if(-not ($allowance -is [double] -or $allowance -is [int])){ continue } # skip title/blank rows
-  $normalized = Normalize-Name $name
-  $target[$normalized] = [PSCustomObject]@{ Allowance = [double]$allowance; Balance = [double]$balance }
+$wb = $null
+# try/finally so a missing file or "Summary" sheet doesn't leave a hidden Excel.exe running
+try {
+  $wb = $excel.Workbooks.Open($Path)
+  $ws = $wb.Worksheets.Item("Summary")
+  $vals = $ws.UsedRange.Value2
+  $rowCount = $vals.GetLength(0)
+  for($r=1; $r -le $rowCount; $r++){
+    $name = $vals[$r,1]
+    $allowance = $vals[$r,2]
+    $balance = $vals[$r,3]
+    if(-not $name){ continue }
+    if($name -eq 'Staff Member'){ continue } # header row
+    if(-not ($allowance -is [double] -or $allowance -is [int])){ continue } # skip title/blank rows
+    $normalized = Normalize-Name $name
+    # an empty Balance cell used to become 0 ([double]$null) and zero that person's live balance
+    if(-not ($balance -is [double] -or $balance -is [int])){ $skippedBlank += $normalized; continue }
+    if($target.ContainsKey($normalized)){ $duplicates += $normalized }
+    $target[$normalized] = [PSCustomObject]@{ Allowance = [double]$allowance; Balance = [double]$balance }
+  }
+} finally {
+  if($wb){ $wb.Close($false) }
+  $excel.Quit()
+  [System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel) | Out-Null
 }
-$wb.Close($false)
-$excel.Quit()
-[System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel) | Out-Null
 Write-Output ("Parsed " + $target.Count + " staff rows from the spreadsheet.")
+if($skippedBlank.Count -gt 0){ Write-Output ("SKIPPED (Balance cell empty or not a number): " + ($skippedBlank -join ', ')) }
+if($duplicates.Count -gt 0){
+  Write-Output ("STOPPING: these names appear more than once in the sheet, fix that first: " + ($duplicates -join ', '))
+  exit 1
+}
 
 $serviceKeySecure = Read-Host -Prompt "`nPaste your Supabase service_role key" -AsSecureString
 $serviceKey = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($serviceKeySecure))
@@ -102,8 +117,23 @@ if(-not $Apply){
 
 Write-Output "`nApplying $($changes.Count) update(s)..."
 foreach($c in $changes){
+  $nameQ = [uri]::EscapeDataString($c.Name)
+  # Only write if the live balance is still what the diff above was computed from — if an order
+  # was placed in the app since then, skip that person instead of silently erasing the order.
+  $guard = "name=eq.$nameQ&balance=eq.$($c.CurrentBalance)&allowance=eq.$($c.CurrentAllowance)"
   $body = @{ allowance = $c.NewAllowance; balance = $c.NewBalance } | ConvertTo-Json
-  Invoke-RestMethod -Method Patch -Uri "$SB_URL/rest/v1/staff?name=eq.$([uri]::EscapeDataString($c.Name))" -Headers $headers -Body $body | Out-Null
+  $h = $headers.Clone(); $h['Prefer'] = 'return=representation'
+  $updated = Invoke-RestMethod -Method Patch -Uri "$SB_URL/rest/v1/staff?$guard" -Headers $h -Body $body
+  if(@($updated).Count -eq 0){
+    Write-Output ($c.Name + " -> SKIPPED: balance changed since the diff was taken (re-run the script)")
+    continue
+  }
+  # same audit trail the admin panel writes for manual edits
+  $audit = @(
+    @{ staff_name = $c.Name; field = 'balance'; old_value = "$($c.CurrentBalance)"; new_value = "$($c.NewBalance)"; changed_by = 'update-balances.ps1'; source = 'spreadsheet_import' },
+    @{ staff_name = $c.Name; field = 'allowance'; old_value = "$($c.CurrentAllowance)"; new_value = "$($c.NewAllowance)"; changed_by = 'update-balances.ps1'; source = 'spreadsheet_import' }
+  ) | ConvertTo-Json
+  Invoke-RestMethod -Method Post -Uri "$SB_URL/rest/v1/staff_audit" -Headers $headers -Body $audit | Out-Null
   Write-Output ($c.Name + " -> balance " + $c.NewBalance + " (was " + $c.CurrentBalance + ")")
 }
 Write-Output "`nDone."
