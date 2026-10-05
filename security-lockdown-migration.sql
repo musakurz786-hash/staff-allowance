@@ -39,3 +39,8 @@ $$;
 
 revoke execute on function adjust_staff_balance(text, numeric) from public, anon;
 grant execute on function adjust_staff_balance(text, numeric) to authenticated;
+
+-- trigger functions only ever run as triggers (EXECUTE isn't checked when a trigger fires — verified
+-- 2026-10-05); this just stops them being exposed as /rest/v1/rpc endpoints
+revoke execute on function staff_guard_update() from public, anon, authenticated;
+revoke execute on function validate_order_amount() from public, anon, authenticated;
