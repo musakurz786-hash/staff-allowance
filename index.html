@@ -327,6 +327,58 @@
   .fom-swal .swal2-actions button.primary{margin-top:0;}
   .fom-swal .swal2-actions button.primary.danger{background:var(--bad);color:#1a0505;}
   .swal2-container.swal2-backdrop-show{background:rgba(0,0,0,.7);}
+
+  /* ---- Tile look (2026-10-09): borderless charcoal tiles on the black page, bigger radii, black pill
+     controls inside tiles, bold numbers, and solid FOM-green "accent" tiles (banner, balance, hovered
+     category) — modelled on a dashboard-widget reference, kept in the existing green palette. Everything
+     in this block overrides rules above, so deleting it restores the previous look. ---- */
+  :root{ --card:#1e231b; --radius-card:28px; --radius-inner:22px; --line:rgba(255,255,255,.04);
+    --tile-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 12px 32px rgba(0,0,0,.35); }
+  /* controls that sit inside a tile go near-black, so they read as recessed pills like the reference */
+  .login-card,.order-panel,.admin-section,.allowance-meter,.product-card,.results,.swal2-popup.fom-swal,.balance-card .stat{
+    --panel:#121510; --panel-hover:#191d16; }
+  .login-card,.order-panel,.admin-section,.allowance-meter,.product-card,.results,.balance-card .stat,.category-tile,.swal2-popup.fom-swal{
+    border-color:transparent; box-shadow:var(--tile-shadow); }
+
+  /* banner = the solid accent tile */
+  .trail-banner-wrap{background:linear-gradient(135deg,#9bd158 0%,#8BC34A 45%,#6c9f35 100%);border:none;box-shadow:var(--tile-shadow);}
+  .trail-banner-brand{color:var(--accent-ink);padding:32px 20px;}
+  .trail-banner-badge{display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:50%;
+    background:var(--accent-ink);margin-bottom:14px;}
+  .trail-banner-icon{height:24px;margin:0;}
+  .trail-banner-tag{color:rgba(16,25,10,.72);font-weight:500;}
+
+  /* balance stats: big bold numbers; the balance itself is a green accent tile (unless it's low) */
+  .balance-card{gap:14px;}
+  .balance-card .stat{border-radius:var(--radius-inner);padding:18px 20px;}
+  .balance-card .label{text-transform:none;letter-spacing:0;font-size:12px;font-weight:500;}
+  .balance-card .value{font-size:24px;font-weight:700;margin-top:2px;}
+  .balance-card .stat:hover{border-color:transparent;}
+  #balBalanceStat:not(.low){background:var(--brand-green);}
+  #balBalanceStat:not(.low) .label{color:rgba(16,25,10,.7);}
+  #balBalanceStat:not(.low) .value{color:var(--accent-ink);}
+  .allowance-meter{border-radius:var(--radius-inner);padding:16px 20px;}
+  .allowance-meter .meter-track,.spend-bar-track{height:10px;}
+
+  /* category / department tiles: charcoal tile, icon in a dark round badge, whole tile turns green on hover */
+  .category-grid{gap:14px;}
+  .category-tile{border-radius:26px;padding:20px 14px 18px;transition:background .2s ease,transform .2s ease;}
+  .category-tile .icon{width:76px;height:76px;padding:10px;border-radius:50%;background:#121510;margin:0 auto 12px;}
+  .category-tile:hover{background:var(--brand-green);border-color:transparent;transform:translateY(-2px);}
+  .category-tile:hover .cat-name{color:var(--accent-ink);}
+  .category-tile:hover .cat-count{color:rgba(16,25,10,.7);}
+
+  /* product cards, admin sections, panels */
+  .product-card{border-radius:24px;}
+  .product-card:not(.out):hover{border-color:transparent;transform:translateY(-2px);}
+  .product-card{transition:transform .2s ease;}
+  .product-card .photo{background:#121510;}
+  .admin-section{margin-bottom:16px;}
+  .admin-section summary{padding:22px 26px;}
+  .admin-section .admin-section-body{padding:0 26px 26px;}
+  .order-panel{padding:26px;}
+  header nav button{background:var(--card);}
+  header nav button:hover{background:#262c22;}
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf@3.10.0/notyf.min.css">
 </head>
@@ -423,7 +475,7 @@
     <div id="orderContent" style="display:none">
       <div class="trail-banner-wrap">
         <div class="trail-banner-brand">
-          <img src="https://www.freedomofmovement.co.za/cdn/shop/files/favicon.png?v=1760790002&width=80" alt="" class="trail-banner-icon">
+          <span class="trail-banner-badge"><img src="https://www.freedomofmovement.co.za/cdn/shop/files/favicon.png?v=1760790002&width=80" alt="" class="trail-banner-icon"></span>
           <div class="trail-banner-title">Freedom of movement</div>
           <div class="trail-banner-tag">Stay free &amp; keep moving</div>
         </div>
