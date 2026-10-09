@@ -15,11 +15,11 @@
      (so "ink background + cream text" buttons come out light-on-dark), --panel the grey surface. */
   :root{
     color-scheme:dark;
-    /* FOM green (#8BC34A, same as the email templates) is the accent on a black page: surfaces carry a
+    /* A softer sage take on FOM green (#9DC57A; the email templates keep the brand #8BC34A) is the accent on a black page: surfaces carry a
        faint green tint and the text is a soft green-white instead of stark #fff, so it's easier on the eye */
-    --ink:#e9efe4; --grey:#9da795; --panel:#1c2219; --panel-hover:#252d21; --line:rgba(139,195,74,.11);
-    --card:#11150f; --cream:#0a0a0a; --good:#8BC34A; --bad:#f87171; --brand-green:#8BC34A;
-    --accent-ink:#10190a; --accent-line:rgba(139,195,74,.38);
+    --ink:#e9efe4; --grey:#9da795; --panel:#1c2219; --panel-hover:#252d21; --line:rgba(157,197,122,.11);
+    --card:#11150f; --cream:#0a0a0a; --good:#9DC57A; --bad:#f87171; --brand-green:#9DC57A;
+    --accent-ink:#10190a; --accent-line:rgba(157,197,122,.38);
     --radius-card:24px; --radius-inner:16px;
     --shadow-rest:none; --shadow-hover:none;
   }
@@ -55,7 +55,7 @@
   }
   textarea{border-radius:var(--radius-inner);}
   input::placeholder,textarea::placeholder{color:#8a8a8a;}
-  select:focus,input:focus,textarea:focus{border-color:rgba(139,195,74,.6);}
+  select:focus,input:focus,textarea:focus{border-color:rgba(157,197,122,.6);}
   input:disabled{opacity:.5;}
   input[type=file]{padding:8px 10px;}
   input[type=file]::file-selector-button{background:var(--panel-hover);color:var(--ink);border:none;border-radius:999px;
@@ -122,7 +122,7 @@
   h2{font-size:17px;font-weight:600;letter-spacing:-.01em;color:var(--ink);margin:0 0 16px;}
   table.admin{width:100%;border-collapse:collapse;font-size:13px;}
   table.admin th,table.admin td{text-align:left;padding:10px;border-bottom:1px solid var(--line);}
-  table.admin th{font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#a9c98a;}
+  table.admin th{font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#b3cf9a;}
   table.admin input{padding:6px 12px;}
   .item-count{font-weight:600;margin-bottom:4px;}
   .item-list{display:flex;flex-direction:column;gap:3px;}
@@ -137,7 +137,7 @@
     transform:rotate(45deg) translate(-2px,-2px);transition:transform .2s ease;}
   .admin-section[open] summary::after{transform:rotate(-135deg) translate(-2px,-2px);border-color:var(--brand-green);}
   .admin-section[open] summary{color:var(--brand-green);}
-  .admin-section summary:hover{background:rgba(139,195,74,.05);}
+  .admin-section summary:hover{background:rgba(157,197,122,.05);}
   .admin-section .admin-section-body{padding:0 24px 24px;overflow-x:auto;}
   /* the admin tables need more room than the 720px order flow — widen the page while Admin is open
      so every column (incl. Cancel / Delete) fits; narrower screens fall back to sideways scrolling */
@@ -163,12 +163,12 @@
   .login-card img{filter:brightness(0) invert(1);}
 
   .trail-banner-wrap{position:relative;margin-bottom:28px;border-radius:var(--radius-card);overflow:hidden;
-    background:radial-gradient(120% 150% at 50% 0%,rgba(139,195,74,.32) 0%,#17220f 45%,var(--card) 80%);border:1px solid var(--accent-line);}
+    background:radial-gradient(120% 150% at 50% 0%,rgba(157,197,122,.32) 0%,#17220f 45%,var(--card) 80%);border:1px solid var(--accent-line);}
   .trail-banner-brand{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
     color:var(--ink);padding:36px 20px;}
   .trail-banner-icon{height:30px;margin-bottom:14px;filter:brightness(0) invert(1);}
   .trail-banner-title{font-size:30px;font-weight:700;letter-spacing:-.03em;line-height:1.1;}
-  .trail-banner-tag{font-size:14px;color:#b5d68f;margin-top:8px;}
+  .trail-banner-tag{font-size:14px;color:#c2dbab;margin-top:8px;}
 
   /* Faint, fixed, never interactive — a background texture behind the whole app, not a UI element */
   #pageWatermark{position:fixed;bottom:-70px;right:-70px;width:420px;height:420px;opacity:.025;
@@ -236,7 +236,7 @@
      password-manager autofill all still work; the on-screen keys just write into that same input. */
   .pin-pad{display:flex;flex-direction:column;align-items:center;gap:16px;}
   .pin-dots-wrap{position:relative;padding:10px 18px;border-radius:999px;background:var(--panel);border:1px solid transparent;transition:border-color .15s ease;}
-  .pin-dots-wrap:focus-within{border-color:rgba(139,195,74,.6);}
+  .pin-dots-wrap:focus-within{border-color:rgba(157,197,122,.6);}
   .pin-dots{display:flex;gap:14px;}
   .pin-dots span{width:12px;height:12px;border-radius:50%;border:1.5px solid var(--grey);transition:background .12s ease,border-color .12s ease,transform .12s ease;}
   .pin-dots span.filled{background:var(--brand-green);border-color:var(--brand-green);transform:scale(1.1);}
@@ -283,7 +283,7 @@
     border-color:transparent; box-shadow:var(--tile-shadow); }
 
   /* banner = the solid accent tile */
-  .trail-banner-wrap{background:linear-gradient(135deg,#9bd158 0%,#8BC34A 45%,#6c9f35 100%);border:none;box-shadow:var(--tile-shadow);}
+  .trail-banner-wrap{background:linear-gradient(135deg,#b4d496 0%,#9DC57A 45%,#7fa65d 100%);border:none;box-shadow:var(--tile-shadow);}
   .trail-banner-brand{color:var(--accent-ink);padding:32px 20px;}
   .trail-banner-badge{display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:50%;
     background:var(--accent-ink);margin-bottom:14px;}
