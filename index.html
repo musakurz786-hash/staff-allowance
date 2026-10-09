@@ -523,7 +523,9 @@
         </div>
       </details>
 
-      <details class="admin-section">
+      <!-- hidden: RSP now follows Shopify's current selling price via the sync, so a manual edit here
+           would be overwritten within 15 minutes — change the price in Shopify instead -->
+      <details class="admin-section" hidden>
         <summary>Edit Product Pricing</summary>
         <div class="admin-section-body">
           <p style="font-size:13px;color:var(--grey);margin-top:-8px">For items on sale on the website but not in the ERP price list — search a product and update its price here.</p>
