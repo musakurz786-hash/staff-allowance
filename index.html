@@ -135,9 +135,17 @@
   .admin-section[open] summary::after{transform:rotate(-135deg) translate(-2px,-2px);}
   .admin-section summary:hover{background:rgba(255,255,255,.02);}
   .admin-section .admin-section-body{padding:0 24px 24px;overflow-x:auto;}
-  /* .admin-section clips its overflow, so on a narrow screen the order tables' last column (Cancel /
-     Delete) was cut off entirely — the body now scrolls sideways and that column stays pinned right */
-  #historyTable td:last-child,#discountTable td:last-child{position:sticky;right:0;background:var(--card);white-space:nowrap;}
+  /* the admin tables need more room than the 720px order flow — widen the page while Admin is open
+     so every column (incl. Cancel / Delete) fits; narrower screens fall back to sideways scrolling */
+  main:has(#view-admin.active){max-width:1120px;}
+  #historyTable td,#discountTable td{vertical-align:middle;}
+  #historyTable td:first-child,#discountTable td:first-child,
+  #historyTable td:nth-child(n+4),#discountTable td:nth-child(n+4){white-space:nowrap;}
+  .tbl-note{display:inline-block;white-space:normal;min-width:120px;font-size:11px;color:var(--grey);}
+  .tbl-actions{display:flex;gap:6px;align-items:center;}
+  .tbl-btn{display:inline-block;background:var(--panel);color:var(--ink);border:1px solid transparent;padding:6px 14px;border-radius:999px;
+    font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;text-decoration:none;white-space:nowrap;transition:background .15s ease;}
+  .tbl-btn:hover{background:var(--panel-hover);}
   .admin-section-body p{line-height:1.5;}
   .spend-bar-row{margin-bottom:12px;}
   .spend-bar-label{display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;}
@@ -2637,9 +2645,10 @@ async function removeOrderItem(orderId, groupKey, scope){
 
 function invoiceCellHtml(g, scope){
   const inputId = 'invFile-'+scope+'-'+g.key;
+  // one compact button each way: "Upload PDF" opens the file picker and uploads as soon as a file is chosen
   return g.invoice_url
-    ? '<a href="'+safeUrl(g.invoice_url)+'" target="_blank" rel="noopener noreferrer">View</a> &middot; <button class="secondary" onclick="emailInvoiceLink('+jsArg(g.key)+','+jsArg(scope)+')">Email</button>'
-    : '<input type="file" accept="application/pdf" id="'+escapeHtml(inputId)+'" style="max-width:110px;font-size:11px"> <button class="secondary" onclick="uploadInvoice('+jsArg(g.key)+','+jsArg(scope)+')">Upload</button>';
+    ? '<div class="tbl-actions"><a class="tbl-btn" href="'+safeUrl(g.invoice_url)+'" target="_blank" rel="noopener noreferrer">View</a><button class="tbl-btn" onclick="emailInvoiceLink('+jsArg(g.key)+','+jsArg(scope)+')">Email</button></div>'
+    : '<label class="tbl-btn" for="'+escapeHtml(inputId)+'">Upload PDF</label><input type="file" accept="application/pdf" hidden id="'+escapeHtml(inputId)+'" onchange="uploadInvoice('+jsArg(g.key)+','+jsArg(scope)+')">';
 }
 
 let discountRows = [];
@@ -2661,7 +2670,7 @@ async function loadDiscountReport(){
     return '<tr><td>'+new Date(g.created_at).toLocaleDateString('en-ZA')+'</td><td>'+escapeHtml(g.staff_name)+'</td>'+
       '<td>'+productLabel+'</td><td>'+totalQty+'</td><td>R'+money(totalRsp)+'</td>'+
       '<td>R'+money(totalDiscount)+'</td><td>R'+money(totalPayable)+'</td><td>'+invoiceCellHtml(g,'discount')+'</td>'+
-      '<td><button class="secondary" onclick="deleteCartGroup('+jsArg(g.key)+')">Delete</button></td></tr>';
+      '<td><button class="tbl-btn" onclick="deleteCartGroup('+jsArg(g.key)+')">Delete</button></td></tr>';
   }).join('');
   const totalRsp = discountRows.reduce((s,o)=>s+o.rsp*o.qty,0);
   const totalPayable = discountRows.reduce((s,o)=>s+Number(o.amount),0);
@@ -2698,6 +2707,7 @@ async function uploadInvoice(groupKey, scope){
     loadOrderHistory();
   }catch(e){
     console.error(e);
+    input.value = ''; // so picking the same file again re-triggers the upload
     toast('Could not upload invoice', true);
   }
 }
@@ -2767,12 +2777,12 @@ async function loadOrderHistory(){
     const typeLabel = isSplitGroup ? 'Split (Allowance + Pay-in)' : (g.orders[0].order_type==='allowance'?'Allowance':'Discount');
     // a split group's pay-in portion is invoiced via the Discount Report (which cleanly isolates
     // just that row) rather than here, to avoid building a second, easy-to-get-wrong invoicing path
-    const invoiceCell = isSplitGroup ? '<span style="font-size:11px;color:var(--grey)">Invoice pay-in via Discount Report</span>' : invoiceCellHtml(g,'history');
+    const invoiceCell = isSplitGroup ? '<span class="tbl-note">Invoice pay-in via Discount Report</span>' : invoiceCellHtml(g,'history');
     return '<tr><td>'+new Date(g.created_at).toLocaleDateString('en-ZA')+'</td><td>'+escapeHtml(g.staff_name)+'</td>'+
       '<td>'+productLabel+'</td><td>'+totalQty+'</td>'+
       '<td>'+typeLabel+'</td><td>R'+money(totalAmount)+'</td>'+
       '<td>'+invoiceCell+'</td>'+
-      '<td><button class="secondary" onclick="deleteCartGroup('+jsArg(g.key)+')">Cancel</button></td></tr>';
+      '<td><button class="tbl-btn" onclick="deleteCartGroup('+jsArg(g.key)+')">Cancel</button></td></tr>';
   }).join('');
 }
 
