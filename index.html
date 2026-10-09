@@ -15,8 +15,11 @@
      (so "ink background + cream text" buttons come out light-on-dark), --panel the grey surface. */
   :root{
     color-scheme:dark;
-    --ink:#fafafa; --grey:#a1a1a1; --panel:#232323; --panel-hover:#2c2c2c; --line:rgba(255,255,255,.08);
-    --card:#141414; --cream:#0a0a0a; --good:#4ade80; --bad:#f87171; --brand-green:#d4d4d4;
+    /* FOM green (#8BC34A, same as the email templates) is the accent on a black page: surfaces carry a
+       faint green tint and the text is a soft green-white instead of stark #fff, so it's easier on the eye */
+    --ink:#e9efe4; --grey:#9da795; --panel:#1c2219; --panel-hover:#252d21; --line:rgba(139,195,74,.11);
+    --card:#11150f; --cream:#0a0a0a; --good:#8BC34A; --bad:#f87171; --brand-green:#8BC34A;
+    --accent-ink:#10190a; --accent-line:rgba(139,195,74,.38);
     --radius-card:24px; --radius-inner:16px;
     --shadow-rest:none; --shadow-hover:none;
   }
@@ -25,7 +28,7 @@
   body{font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--ink);background:var(--cream);margin:0;
     -webkit-font-smoothing:antialiased;font-feature-settings:'cv11','ss01';}
   a{color:var(--ink);text-underline-offset:3px;}
-  *{scrollbar-color:#3a3a3a transparent;scrollbar-width:thin;}
+  *{scrollbar-color:#2f3a29 transparent;scrollbar-width:thin;}
   @media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto;} *{animation-duration:.001s !important;transition-duration:.001s !important;} }
   /* One shared "arrive" animation — reused everywhere content appears (view switches, search
      results, filtered tiles, cart panel) instead of the old hard display:none/block snap. Browsers
@@ -41,7 +44,7 @@
   header nav button{background:var(--panel);border:none;color:var(--ink);padding:8px 16px;font-size:13px;font-weight:500;
     cursor:pointer;border-radius:999px;font-family:inherit;transition:background .15s ease,color .15s ease;}
   header nav button:hover{background:var(--panel-hover);}
-  header nav button.active{background:var(--ink);color:var(--cream);}
+  header nav button.active{background:var(--brand-green);color:var(--accent-ink);}
   main{max-width:720px;margin:0 auto;padding:36px 20px 80px;}
   .view{display:none;}
   .view.active{display:block;animation:flowIn .4s cubic-bezier(.2,.8,.2,1);}
@@ -52,7 +55,7 @@
   }
   textarea{border-radius:var(--radius-inner);}
   input::placeholder,textarea::placeholder{color:#8a8a8a;}
-  select:focus,input:focus,textarea:focus{border-color:rgba(255,255,255,.28);}
+  select:focus,input:focus,textarea:focus{border-color:rgba(139,195,74,.6);}
   input:disabled{opacity:.5;}
   input[type=file]{padding:8px 10px;}
   input[type=file]::file-selector-button{background:var(--panel-hover);color:var(--ink);border:none;border-radius:999px;
@@ -61,7 +64,7 @@
   .balance-card{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;}
   .balance-card .stat{flex:1;min-width:120px;background:var(--card);border:1px solid var(--line);
     border-radius:var(--radius-inner);padding:16px 18px;transition:border-color .2s ease;}
-  .balance-card .stat:hover{border-color:rgba(255,255,255,.16);}
+  .balance-card .stat:hover{border-color:var(--accent-line);}
   .balance-card .label{font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--grey);margin-bottom:6px;}
   .balance-card .value{font-size:22px;font-weight:600;letter-spacing:-.02em;color:var(--ink);}
   .balance-card .stat.low .value{color:var(--bad);}
@@ -84,7 +87,7 @@
   .product-card:nth-child(6){animation-delay:.15s;} .product-card:nth-child(n+7){animation-delay:.18s;}
   .product-card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:20px;overflow:hidden;
     transition:border-color .15s ease;}
-  .product-card:not(.out):hover{border-color:rgba(255,255,255,.18);}
+  .product-card:not(.out):hover{border-color:var(--accent-line);}
   .product-card .photo{width:100%;aspect-ratio:1/1;background:var(--panel);display:flex;align-items:center;justify-content:center;overflow:hidden;}
   .product-card .photo img{width:100%;height:100%;object-fit:cover;display:block;}
   .product-card .photo svg{width:56px;height:56px;color:var(--grey);}
@@ -95,7 +98,7 @@
   .product-card .foot{display:flex;justify-content:space-between;align-items:center;gap:6px 8px;flex-wrap:wrap;}
   .product-card .rsp{font-weight:600;font-size:14px;}
   .product-card.out .rsp{color:var(--bad);font-size:12px;}
-  .product-card button.add{background:var(--ink);color:var(--cream);border:none;padding:6px 14px;border-radius:999px;font-size:12px;
+  .product-card button.add{background:var(--brand-green);color:var(--accent-ink);border:none;padding:6px 14px;border-radius:999px;font-size:12px;
     font-weight:500;font-family:inherit;white-space:nowrap;cursor:pointer;transition:opacity .15s ease;}
   .product-card button.add:hover{opacity:.85;}
   .order-panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-card);padding:24px;margin-top:8px;animation:flowIn .35s ease;}
@@ -104,22 +107,22 @@
   .type-toggle{display:flex;gap:8px;margin-bottom:18px;}
   .type-toggle button{flex:1;padding:10px 12px;border:none;background:var(--panel);color:var(--ink);border-radius:999px;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;transition:background .15s ease,color .15s ease;}
   .type-toggle button:hover{background:var(--panel-hover);}
-  .type-toggle button.active{background:var(--ink);color:var(--cream);}
+  .type-toggle button.active{background:var(--brand-green);color:var(--accent-ink);}
   .amount-row{display:flex;justify-content:space-between;font-size:14px;padding:6px 0;color:var(--grey);}
   .amount-row span:last-child{color:var(--ink);}
   .amount-row.total{font-weight:600;color:var(--ink);border-top:1px solid var(--line);margin-top:8px;padding-top:12px;}
-  button.primary{background:var(--ink);color:var(--cream);border:none;padding:12px;width:100%;border-radius:999px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;margin-top:16px;transition:opacity .15s ease;}
+  button.primary{background:var(--brand-green);color:var(--accent-ink);border:none;padding:12px;width:100%;border-radius:999px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;margin-top:16px;transition:opacity .15s ease;}
   button.primary:hover{opacity:.88;}
   button.primary:disabled{opacity:.35;cursor:not-allowed;}
   button.secondary{background:var(--panel);color:var(--ink);border:1px solid transparent;padding:8px 18px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s ease;}
   button.secondary:hover{background:var(--panel-hover);}
-  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--cream);padding:12px 20px;border-radius:999px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:opacity .25s;z-index:50;max-width:90%;text-align:center;}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--brand-green);color:var(--accent-ink);padding:12px 20px;border-radius:999px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:opacity .25s;z-index:50;max-width:90%;text-align:center;}
   .toast.show{opacity:1;}
   .toast.err{background:var(--bad);color:#1a0505;}
   h2{font-size:17px;font-weight:600;letter-spacing:-.01em;color:var(--ink);margin:0 0 16px;}
   table.admin{width:100%;border-collapse:collapse;font-size:13px;}
   table.admin th,table.admin td{text-align:left;padding:10px;border-bottom:1px solid var(--line);}
-  table.admin th{font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--grey);}
+  table.admin th{font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#a9c98a;}
   table.admin input{padding:6px 12px;}
   .item-count{font-weight:600;margin-bottom:4px;}
   .item-list{display:flex;flex-direction:column;gap:3px;}
@@ -132,8 +135,9 @@
   .admin-section summary::-webkit-details-marker{display:none;}
   .admin-section summary::after{content:'';width:8px;height:8px;border-right:1.5px solid var(--grey);border-bottom:1.5px solid var(--grey);
     transform:rotate(45deg) translate(-2px,-2px);transition:transform .2s ease;}
-  .admin-section[open] summary::after{transform:rotate(-135deg) translate(-2px,-2px);}
-  .admin-section summary:hover{background:rgba(255,255,255,.02);}
+  .admin-section[open] summary::after{transform:rotate(-135deg) translate(-2px,-2px);border-color:var(--brand-green);}
+  .admin-section[open] summary{color:var(--brand-green);}
+  .admin-section summary:hover{background:rgba(139,195,74,.05);}
   .admin-section .admin-section-body{padding:0 24px 24px;overflow-x:auto;}
   /* the admin tables need more room than the 720px order flow — widen the page while Admin is open
      so every column (incl. Cancel / Delete) fits; narrower screens fall back to sideways scrolling */
@@ -175,7 +179,7 @@
   .category-tile{background:var(--card);border:1px solid var(--line);border-radius:20px;
     padding:18px 14px;text-align:center;cursor:pointer;
     transition:border-color .2s ease,background .2s ease;}
-  .category-tile:hover{border-color:rgba(255,255,255,.18);background:#181818;}
+  .category-tile:hover{border-color:var(--accent-line);background:#161c13;}
   .category-tile .icon{width:64px;height:64px;margin:0 auto 8px;color:#d4d4d4;}
   .category-tile .icon svg{width:100%;height:100%;}
   /* the figures' legs/props were drawn in the old dark ink colour, invisible on a dark tile —
@@ -289,10 +293,10 @@
      password-manager autofill all still work; the on-screen keys just write into that same input. */
   .pin-pad{display:flex;flex-direction:column;align-items:center;gap:16px;}
   .pin-dots-wrap{position:relative;padding:10px 18px;border-radius:999px;background:var(--panel);border:1px solid transparent;transition:border-color .15s ease;}
-  .pin-dots-wrap:focus-within{border-color:rgba(255,255,255,.28);}
+  .pin-dots-wrap:focus-within{border-color:rgba(139,195,74,.6);}
   .pin-dots{display:flex;gap:14px;}
   .pin-dots span{width:12px;height:12px;border-radius:50%;border:1.5px solid var(--grey);transition:background .12s ease,border-color .12s ease,transform .12s ease;}
-  .pin-dots span.filled{background:var(--ink);border-color:var(--ink);transform:scale(1.1);}
+  .pin-dots span.filled{background:var(--brand-green);border-color:var(--brand-green);transform:scale(1.1);}
   .pin-pad .pin-input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0;}
   .pin-keys{display:grid;grid-template-columns:repeat(3,64px);gap:10px;}
   .pin-keys button{height:52px;border:none;border-radius:999px;background:var(--panel);color:var(--ink);font-family:inherit;
