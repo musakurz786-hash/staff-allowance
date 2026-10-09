@@ -134,7 +134,10 @@
     transform:rotate(45deg) translate(-2px,-2px);transition:transform .2s ease;}
   .admin-section[open] summary::after{transform:rotate(-135deg) translate(-2px,-2px);}
   .admin-section summary:hover{background:rgba(255,255,255,.02);}
-  .admin-section .admin-section-body{padding:0 24px 24px;}
+  .admin-section .admin-section-body{padding:0 24px 24px;overflow-x:auto;}
+  /* .admin-section clips its overflow, so on a narrow screen the order tables' last column (Cancel /
+     Delete) was cut off entirely — the body now scrolls sideways and that column stays pinned right */
+  #historyTable td:last-child,#discountTable td:last-child{position:sticky;right:0;background:var(--card);white-space:nowrap;}
   .admin-section-body p{line-height:1.5;}
   .spend-bar-row{margin-bottom:12px;}
   .spend-bar-label{display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;}
