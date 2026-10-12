@@ -2645,7 +2645,45 @@ function invoiceCellHtml(g, scope){
   // one compact button each way: "Upload PDF" opens the file picker and uploads as soon as a file is chosen
   return g.invoice_url
     ? '<div class="tbl-actions"><a class="tbl-btn" href="'+safeUrl(g.invoice_url)+'" target="_blank" rel="noopener noreferrer">View</a><button class="tbl-btn" onclick="emailInvoiceLink('+jsArg(g.key)+','+jsArg(scope)+')">Email</button></div>'
-    : '<label class="tbl-btn" for="'+escapeHtml(inputId)+'">Upload PDF</label><input type="file" accept="application/pdf" hidden id="'+escapeHtml(inputId)+'" onchange="uploadInvoice('+jsArg(g.key)+','+jsArg(scope)+')">';
+    : '<div class="tbl-actions">'+cin7CsvBtnHtml(g, scope)+'<label class="tbl-btn" for="'+escapeHtml(inputId)+'">Upload PDF</label><input type="file" accept="application/pdf" hidden id="'+escapeHtml(inputId)+'" onchange="uploadInvoice('+jsArg(g.key)+','+jsArg(scope)+')"></div>';
+}
+
+function cin7CsvBtnHtml(g, scope){
+  return '<button class="tbl-btn" title="Download this order as a Cin7 Bulk Update Sale Order file" onclick="downloadCin7Csv('+jsArg(g.key)+','+jsArg(scope)+')">Cin7 CSV</button>';
+}
+
+// Cin7 "Bulk Update Sale Order" lines file (SKU,Name,Comment,Quantity,Price,Discount) for one cart, so
+// it can be loaded straight onto a Cin7 sale order and invoiced. Price is the unit RSP; Discount is the
+// line's % off, worked out from what was actually charged (40% staff discount, 0% allowance/top-up),
+// rather than assumed from the order type. Like uploadInvoice, it re-fetches every row sharing the
+// cart's order_group_id — one Cin7 invoice covers the whole cart, including both halves of a split order.
+async function downloadCin7Csv(groupKey, scope){
+  const g = (scope==='discount'?discountGroups:historyGroups).find(x=>x.key===groupKey);
+  if(!g || !g.orders.length) return;
+  try{
+    const groupId = g.orders[0].order_group_id;
+    const rows = groupId ? await sb('GET','orders?select=*&order_group_id=eq.'+encodeURIComponent(groupId)+'&order=id.asc') : g.orders;
+    const csvCell = v => { const s = String(v==null?'':v); return /[",\r\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
+    const date = new Date(g.created_at).toLocaleDateString('en-ZA');
+    const lines = [['SKU','Name','Comment','Quantity','Price','Discount']];
+    rows.forEach(o=>{
+      const qty = Number(o.qty)||0, rsp = Number(o.rsp)||0, amount = Number(o.amount)||0;
+      const gross = rsp*qty;
+      let disc = gross > 0 ? (1 - amount/gross)*100 : 0;
+      disc = Math.min(100, Math.max(0, Math.round(disc*100)/100));
+      const type = o.order_type==='allowance' ? 'Staff Allowance' : (o.is_topup ? 'Allowance top-up' : 'Staff Discount');
+      lines.push([o.sku, o.product, o.staff_name+' - '+type+' - '+date, qty, rsp.toFixed(2), disc]);
+    });
+    const csv = lines.map(r=>r.map(csvCell).join(',')).join('\r\n')+'\r\n';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
+    a.download = 'Cin7 Sale Order - '+g.staff_name.replace(/[^\w -]/g,'')+' - '+date.replace(/\//g,'-')+'.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+  }catch(e){
+    console.error(e);
+    toast('Could not build the Cin7 file', true);
+  }
 }
 
 let discountRows = [];
@@ -2774,7 +2812,7 @@ async function loadOrderHistory(){
     const typeLabel = isSplitGroup ? 'Split (Allowance + Pay-in)' : (g.orders[0].order_type==='allowance'?'Allowance':'Discount');
     // a split group's pay-in portion is invoiced via the Discount Report (which cleanly isolates
     // just that row) rather than here, to avoid building a second, easy-to-get-wrong invoicing path
-    const invoiceCell = isSplitGroup ? '<span class="tbl-note">Invoice pay-in via Discount Report</span>' : invoiceCellHtml(g,'history');
+    const invoiceCell = isSplitGroup ? '<div class="tbl-actions">'+cin7CsvBtnHtml(g,'history')+'<span class="tbl-note">Invoice pay-in via Discount Report</span></div>' : invoiceCellHtml(g,'history');
     return '<tr><td>'+new Date(g.created_at).toLocaleDateString('en-ZA')+'</td><td>'+escapeHtml(g.staff_name)+'</td>'+
       '<td>'+productLabel+'</td><td>'+totalQty+'</td>'+
       '<td>'+typeLabel+'</td><td>R'+money(totalAmount)+'</td>'+
