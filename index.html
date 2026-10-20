@@ -314,10 +314,35 @@
   .category-tile:hover .cat-count{color:rgba(16,25,10,.7);}
 
   /* product cards, admin sections, panels */
-  .product-card{border-radius:24px;}
-  .product-card:not(.out):hover{border-color:transparent;transform:translateY(-2px);}
-  .product-card{transition:transform .2s ease;}
-  .product-card .photo{background:#121510;}
+  /* product grid: no inner scroll box (it clipped the tiles' edges and shadows mid-row and made the
+     page scroll inside a scroll) — the page scrolls instead. Fewer, wider columns so names fit, and
+     each photo sits in an inset rounded panel shaped 4:5 — the website's product shots are portrait
+     at that ratio, so they fill the panel edge to edge instead of being squashed into a square. */
+  .product-grid{max-height:none;overflow:visible;padding:0;gap:16px;grid-template-columns:repeat(auto-fill,minmax(196px,1fr));}
+  @media (max-width:520px){ .product-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;} }
+  .product-card{border-radius:26px;display:flex;flex-direction:column;transition:transform .2s ease,box-shadow .2s ease;}
+  .product-card:not(.out):hover{border-color:transparent;transform:translateY(-3px);
+    box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px rgba(0,0,0,.45);}
+  .product-card .photo{margin:8px 8px 0;width:auto;aspect-ratio:4/5;border-radius:20px;background:#121510;}
+  .product-card .photo img{object-fit:cover;transition:transform .35s ease;}
+  .product-card:not(.out):hover .photo img{transform:scale(1.05);}
+  .product-card .photo svg{width:52px;height:52px;}
+  .product-card.out .photo{opacity:.45;}
+  .product-card .info{padding:14px 16px 16px;display:flex;flex-direction:column;flex:1;}
+  .product-card .name{font-size:14px;line-height:1.35;min-height:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  .product-card .meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:8px 0 14px;font-size:11px;}
+  .product-card .stock{background:#121510;color:var(--brand-green);border-radius:999px;padding:3px 9px;font-weight:600;white-space:nowrap;}
+  .product-card.out .stock{color:var(--bad);}
+  .product-card .foot{margin-top:auto;flex-wrap:nowrap;}
+  .product-card .rsp{font-size:16px;font-weight:700;white-space:nowrap;}
+  .product-card button.add{padding:8px 16px;font-size:13px;font-weight:600;}
+  .grid-note{grid-column:1/-1;font-size:12px;color:var(--grey);text-align:center;padding:4px 0 8px;}
+  @media (max-width:520px){
+    .product-card .info{padding:12px 12px 14px;}
+    .product-card .name{font-size:13px;}
+    .product-card .foot{flex-wrap:wrap;gap:8px;}
+    .product-card button.add{width:100%;}
+  }
   .admin-section{margin-bottom:16px;}
   .admin-section summary{padding:22px 26px;}
   .admin-section .admin-section-body{padding:0 26px 26px;}
@@ -1242,14 +1267,20 @@ function onSearch(){
     matches = matches.filter(p => activeFilter.type === 'category' ? categoryOf(p) === activeFilter.value : genderOf(p) === activeFilter.value);
   }
   if(q.length >= 2) matches = matches.filter(p => p.product.toLowerCase().includes(q) || (p.sku||'').toLowerCase().includes(q));
+  // unpriced items (e.g. vellie assembly parts) can never be ordered, so they're left out of browsing
+  // entirely; what's left is ordered in-stock first so the top of the grid is always buyable
+  matches = matches.filter(p => Number(p.rsp) > 0);
+  matches.sort((a,b) => (Number(b.available) > 0) - (Number(a.available) > 0));
+  const total = matches.length;
   matches = matches.slice(0,100);
   results.style.display='grid';
   if(!matches.length){ results.innerHTML = '<div class="empty">No products match'+(q?(' "'+escapeHtml(q)+'"'):' this filter')+'</div>'; return; }
+  const moreNote = total > matches.length ? '<div class="grid-note">Showing the first '+matches.length+' of '+total+' — search to narrow it down</div>' : '';
   results.innerHTML = matches.map(p => {
     const out = Number(p.available) <= 0;
     const unpriced = !(Number(p.rsp) > 0);
     const disabled = out || unpriced;
-    const statusText = unpriced ? 'Not priced yet' : (out ? 'Out of stock' : Math.floor(p.available)+' available');
+    const statusText = '<span class="stock">'+(out ? 'Out of stock' : Math.floor(p.available)+' available')+'</span>';
     const cat = categoryOf(p);
     const meta = CATEGORY_META[cat];
     // real photo once Admin has imported one for this SKU; otherwise fall back to the same
@@ -1261,13 +1292,13 @@ function onSearch(){
       '<div class="photo">'+photo+'</div>'+
       '<div class="info">'+
         '<div class="name">'+escapeHtml(p.product)+'</div>'+
-        '<div class="meta">SKU '+escapeHtml(p.sku)+' &middot; '+statusText+'</div>'+
+        '<div class="meta">'+statusText+'<span>SKU '+escapeHtml(p.sku)+'</span></div>'+
         '<div class="foot">'+
           '<div class="rsp">'+(unpriced?'&mdash;':'R'+money(p.rsp))+'</div>'+
           (disabled?'':'<button class="add" onclick="selectProduct('+jsArg(p.sku)+', this)">+ Add</button>')+
         '</div>'+
       '</div></div>';
-  }).join('');
+  }).join('') + moreNote;
 }
 
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
