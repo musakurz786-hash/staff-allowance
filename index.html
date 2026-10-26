@@ -1330,7 +1330,7 @@ function onSearch(){
     // real photo once Admin has imported one for this SKU; otherwise fall back to the same
     // category icon/tint used on the tile grid, so an unphotographed item still looks intentional
     const photo = p.image_url
-      ? '<img src="'+escapeHtml(p.image_url)+'" alt="" loading="lazy">'
+      ? productImg(p.image_url, [320, 480, 640, 800], '(max-width:520px) 45vw, 220px')
       : meta.icon;
     return '<div class="product-card'+(disabled?' out':'')+'" style="--cat-color:'+meta.color+';--cat-tint:'+meta.tint+'">'+
       '<div class="photo">'+photo+'</div>'+
@@ -1355,6 +1355,32 @@ const RAIL_HANGER = '<svg class="rail-hanger" viewBox="0 0 88 32" fill="none" st
   '<path d="M4 31L44 16L84 31" stroke="#b08a5b" stroke-width="2.8"/></svg>';
 let railHasItems = false, railInited = false, railDragMoved = false;
 let railPhotoCount = {}; // photo -> how many SKUs share it (every size of a shoe or tee is its own SKU)
+
+// products.image_url holds the website's full-size original (often several thousand pixels wide). Squashing
+// that into a ~130px tile in the browser gives a harsh, aliased result, so ask Shopify's CDN (which resizes on
+// the fly via ?width=, like the logo above) for the size the screen needs, at 1x / 2x / 3x pixel density.
+function shopImg(url, w){
+  try{
+    const u = new URL(url);
+    const shopify = /(^|\.)cdn\.shopify\.com$/.test(u.hostname) || (/(^|\.)freedomofmovement\.co\.za$/.test(u.hostname) && u.pathname.startsWith('/cdn/'));
+    if(!shopify) return url;
+    u.searchParams.set('width', w);
+    return u.toString();
+  }catch(e){ return url; }
+}
+// <img> attributes for a product photo: srcset + sizes, the original as fallback if a resize fails to load
+function productImg(url, widths, sizes, extra){
+  const urls = widths.map(w => shopImg(url, w));
+  const resizable = urls.some(u => u !== url); // not a Shopify URL: nothing to resize, plain <img>
+  return '<img src="'+escapeHtml(urls[urls.length-1])+'"'+
+    (resizable ? ' srcset="'+escapeHtml(urls.map((u,i) => u+' '+widths[i]+'w').join(', '))+'" sizes="'+sizes+'" data-o="'+escapeHtml(url)+'"' : '')+
+    ' alt="" loading="lazy" decoding="async"'+(extra||'')+' onerror="imgFallback(this)">';
+}
+function imgFallback(img){
+  if(img.dataset.f){ img.remove(); return; }
+  if(!img.dataset.o){ img.remove(); return; }
+  img.dataset.f = '1'; img.removeAttribute('srcset'); img.src = img.dataset.o;
+}
 
 // Sizes of one product are separate SKUs that all share a single photo (ignoring the ?v= cache-buster).
 const railPhotoKey = p => String(p.image_url || '').split('?')[0];
@@ -1402,7 +1428,7 @@ function buildRail(){
         const label = sized ? railBaseName(p.product) : p.product;
         return '<button class="rail-item" style="--k:'+(0.85+(i%3)*0.12).toFixed(2)+'" onclick="railPick('+jsArg(p.sku)+')" aria-label="'+(sized?'Choose a size of ':'Add ')+escapeHtml(label)+'">'+
           RAIL_HANGER+
-          '<div class="rail-photo"><img src="'+escapeHtml(p.image_url)+'" alt="" loading="lazy" draggable="false" onerror="this.remove()"></div>'+
+          '<div class="rail-photo">'+productImg(p.image_url, [256, 384, 512], '(max-width:520px) 112px, 128px', ' draggable="false"')+'</div>'+
           '<div class="rail-name">'+escapeHtml(label)+'</div>'+
           '<div class="rail-price">'+'R'+money(p.rsp)+(sized?'<i class="sizes" aria-hidden="true">Sizes</i>':'<i aria-hidden="true">+</i>')+'</div>'+
         '</button>';
