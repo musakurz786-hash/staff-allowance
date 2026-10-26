@@ -1311,7 +1311,10 @@ function onSearch(){
   // unpriced items (e.g. vellie assembly parts) can never be ordered, so they're left out of browsing
   // entirely; what's left is ordered in-stock first so the top of the grid is always buyable
   matches = matches.filter(p => Number(p.rsp) > 0);
-  matches.sort((a,b) => (Number(b.available) > 0) - (Number(a.available) > 0));
+  // a product's sizes read in size order (out-of-stock ones stay in their place, shown disabled); every other
+  // view keeps in-stock first
+  if(activeFilter && activeFilter.type === 'model') matches.sort(bySize);
+  else matches.sort((a,b) => (Number(b.available) > 0) - (Number(a.available) > 0));
   const total = matches.length;
   matches = matches.slice(0,100);
   results.style.display='grid';
@@ -1422,6 +1425,16 @@ function railPick(sku){
   if(railPhotoCount[railPhotoKey(p)] > 1) selectModel(railPhotoKey(p), railBaseName(p.product));
   else selectProduct(sku);
 }
+
+// XS < S < M < L < XL ..., then UK / waist sizes numerically. The catalogue comes back A-Z by name, which
+// would put "UK 10" before "UK 9" and "L" before "XS".
+const SIZE_ORDER = ['XXS','XS','S','M','L','XL','XXL','XXXL'];
+const sizeRank = name => {
+  const t = (String(name).match(/(?:UK\s*)?(\d+(?:\.\d+)?|[A-Za-z]+)$/) || [])[1] || '';
+  const i = SIZE_ORDER.indexOf(t.toUpperCase());
+  return i >= 0 ? i : (isNaN(parseFloat(t)) ? 999 : 100 + parseFloat(t));
+};
+const bySize = (a,b) => sizeRank(a.product) - sizeRank(b.product) || String(a.product).localeCompare(String(b.product), undefined, {numeric:true});
 
 // Same screen as a category tile, narrowed to the SKUs that share one photo (= every size of one product).
 function selectModel(photoKey, label){
