@@ -377,6 +377,7 @@
   .rail-name{margin-top:10px;font-size:12px;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
   .rail-price{margin-top:3px;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;}
   .rail-price i{font-style:normal;width:18px;height:18px;border-radius:50%;background:var(--brand-green);color:var(--accent-ink);font-size:13px;line-height:18px;font-weight:700;}
+  .rail-price i.sizes{width:auto;height:auto;padding:2px 8px;border-radius:999px;font-size:10px;line-height:1.5;letter-spacing:.02em;}
   @media (max-width:520px){ .rail-item,.rail-photo{width:112px;} .rail-hanger{width:78px;} .rail-track{gap:16px;} }
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf@3.10.0/notyf.min.css">
@@ -493,7 +494,7 @@
       </div>
 
       <div id="railView" class="rail-section" style="display:none">
-        <div class="rail-head"><label>On the rail</label><span class="rail-hint">Swipe or drag &middot; tap to add</span></div>
+        <div class="rail-head"><label>On the rail</label><span class="rail-hint">Swipe or drag &middot; tap to shop</span></div>
         <div id="rail" class="rail"><div id="railTrack" class="rail-track"></div></div>
       </div>
 
@@ -1301,7 +1302,10 @@ function onSearch(){
   if(!activeFilter && q.length < 2){ results.style.display='none'; results.innerHTML=''; return; }
   let matches = PRODUCTS;
   if(activeFilter){
-    matches = matches.filter(p => activeFilter.type === 'category' ? categoryOf(p) === activeFilter.value : genderOf(p) === activeFilter.value);
+    matches = matches.filter(p =>
+      activeFilter.type === 'category' ? categoryOf(p) === activeFilter.value :
+      activeFilter.type === 'model' ? railPhotoKey(p) === activeFilter.value :
+      genderOf(p) === activeFilter.value);
   }
   if(q.length >= 2) matches = matches.filter(p => p.product.toLowerCase().includes(q) || (p.sku||'').toLowerCase().includes(q));
   // unpriced items (e.g. vellie assembly parts) can never be ordered, so they're left out of browsing
@@ -1347,15 +1351,22 @@ const RAIL_HANGER = '<svg class="rail-hanger" viewBox="0 0 88 32" fill="none" st
   '<path d="M44 16V10.5C44 3 53 3 53 9" stroke="#9da795" stroke-width="1.8"/>'+
   '<path d="M4 31L44 16L84 31" stroke="#b08a5b" stroke-width="2.8"/></svg>';
 let railHasItems = false, railInited = false, railDragMoved = false;
+let railPhotoCount = {}; // photo -> how many SKUs share it (every size of a shoe or tee is its own SKU)
+
+// Sizes of one product are separate SKUs that all share a single photo (ignoring the ?v= cache-buster).
+const railPhotoKey = p => String(p.image_url || '').split('?')[0];
+// "FOM Mens Tekkie - Karoo UK 9" -> "FOM Mens Tekkie - Karoo"; "Tee - Black M" -> "Tee - Black"
+const railBaseName = name => String(name).trim().replace(/[\s-]+(?:UK\s*\d+(?:\.\d+)?|XXS|XS|S|M|L|XL|XXL|XXXL|\d{1,2}(?:\.\d+)?)$/i, '').trim() || String(name);
 
 function railPicks(){
   const seen = new Set();
   const byCat = {};
   PRODUCTS.forEach(p => {
     if(!p.image_url || !(Number(p.rsp) > 0) || !(Number(p.available) > 0)) return;
-    const key = String(p.product).trim().toLowerCase();
-    if(seen.has(key)) return; // size/colour variants of one product would otherwise hang side by side
-    seen.add(key);
+    // one hanger per photo, so the sizes of a single shoe/tee don't all hang side by side
+    const keys = [railPhotoKey(p), 'n:'+String(p.product).trim().toLowerCase()];
+    if(keys.some(k => seen.has(k))) return;
+    keys.forEach(k => seen.add(k));
     (byCat[categoryOf(p)] = byCat[categoryOf(p)] || []).push(p);
   });
   // seeded by the date: everyone sees the same rail all day and it changes tomorrow
@@ -1379,14 +1390,19 @@ function buildRail(){
   initRail();
   const picks = railPicks();
   railHasItems = picks.length >= RAIL_MIN;
+  railPhotoCount = {};
+  PRODUCTS.forEach(p => { if(p.image_url){ const k = railPhotoKey(p); railPhotoCount[k] = (railPhotoCount[k] || 0) + 1; } });
   document.getElementById('railTrack').innerHTML = railHasItems
-    ? '<div class="rail-bar"></div>' + picks.map((p,i) =>
-        '<button class="rail-item" style="--k:'+(0.85+(i%3)*0.12).toFixed(2)+'" onclick="railPick('+jsArg(p.sku)+')" aria-label="Add '+escapeHtml(p.product)+'">'+
+    ? '<div class="rail-bar"></div>' + picks.map((p,i) => {
+        const sized = railPhotoCount[railPhotoKey(p)] > 1;
+        const label = sized ? railBaseName(p.product) : p.product;
+        return '<button class="rail-item" style="--k:'+(0.85+(i%3)*0.12).toFixed(2)+'" onclick="railPick('+jsArg(p.sku)+')" aria-label="'+(sized?'Choose a size of ':'Add ')+escapeHtml(label)+'">'+
           RAIL_HANGER+
           '<div class="rail-photo"><img src="'+escapeHtml(p.image_url)+'" alt="" loading="lazy" draggable="false" onerror="this.remove()"></div>'+
-          '<div class="rail-name">'+escapeHtml(p.product)+'</div>'+
-          '<div class="rail-price">R'+money(p.rsp)+'<i aria-hidden="true">+</i></div>'+
-        '</button>').join('')
+          '<div class="rail-name">'+escapeHtml(label)+'</div>'+
+          '<div class="rail-price">'+'R'+money(p.rsp)+(sized?'<i class="sizes" aria-hidden="true">Sizes</i>':'<i aria-hidden="true">+</i>')+'</div>'+
+        '</button>';
+      }).join('')
     : '';
   syncRail();
 }
@@ -1399,7 +1415,19 @@ function syncRail(){
 
 function railPick(sku){
   if(railDragMoved) return; // that was the end of a drag, not a tap
-  selectProduct(sku);
+  const p = PRODUCTS.find(x => x.sku === sku);
+  if(!p) return;
+  // a sized item opens all of its sizes (so nobody gets a random UK 9 in their cart); a single-size
+  // item (bags, wallets, ...) is added straight away
+  if(railPhotoCount[railPhotoKey(p)] > 1) selectModel(railPhotoKey(p), railBaseName(p.product));
+  else selectProduct(sku);
+}
+
+// Same screen as a category tile, narrowed to the SKUs that share one photo (= every size of one product).
+function selectModel(photoKey, label){
+  activeFilter = {type:'model', value:photoKey, label:label};
+  enterFilteredView();
+  document.getElementById('categoryActiveBar').scrollIntoView({behavior:'smooth', block:'start'});
 }
 
 function initRail(){
