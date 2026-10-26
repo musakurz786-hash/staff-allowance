@@ -1358,8 +1358,9 @@ let railPhotoCount = {}; // photo -> how many SKUs share it (every size of a sho
 
 // Sizes of one product are separate SKUs that all share a single photo (ignoring the ?v= cache-buster).
 const railPhotoKey = p => String(p.image_url || '').split('?')[0];
-// "FOM Mens Tekkie - Karoo UK 9" -> "FOM Mens Tekkie - Karoo"; "Tee - Black M" -> "Tee - Black"
-const railBaseName = name => String(name).trim().replace(/[\s-]+(?:UK\s*\d+(?:\.\d+)?|XXS|XS|S|M|L|XL|XXL|XXXL|\d{1,2}(?:\.\d+)?)$/i, '').trim() || String(name);
+// "FOM Mens Tekkie - Karoo UK 9" -> "FOM Mens Tekkie - Karoo"; "Tee - Black M" -> "Tee - Black"; a season tag after the
+// size goes too: "Nola - Taupe - UK 7 (W26)" -> "Nola - Taupe"
+const railBaseName = name => String(name).trim().replace(/[\s-]+(?:UK\s*\d+(?:\.\d+)?|XXS|XS|S|M|L|XL|XXL|XXXL|\d{1,2}(?:\.\d+)?)(?:\s*\([^)]*\))?$/i, '').trim() || String(name);
 
 function railPicks(){
   const seen = new Set();
@@ -1430,7 +1431,7 @@ function railPick(sku){
 // would put "UK 10" before "UK 9" and "L" before "XS".
 const SIZE_ORDER = ['XXS','XS','S','M','L','XL','XXL','XXXL'];
 const sizeRank = name => {
-  const t = (String(name).match(/(?:UK\s*)?(\d+(?:\.\d+)?|[A-Za-z]+)$/) || [])[1] || '';
+  const t = (String(name).replace(/\s*\([^)]*\)\s*$/, '').match(/(?:UK\s*)?(\d+(?:\.\d+)?|[A-Za-z]+)$/) || [])[1] || '';
   const i = SIZE_ORDER.indexOf(t.toUpperCase());
   return i >= 0 ? i : (isNaN(parseFloat(t)) ? 999 : 100 + parseFloat(t));
 };
