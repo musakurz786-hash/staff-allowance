@@ -287,12 +287,12 @@
     border-color:transparent; box-shadow:var(--tile-shadow); }
 
   /* banner = the solid accent tile */
-  .trail-banner-wrap{background:radial-gradient(85% 130% at 50% -15%,rgba(2,151,222,.85) 0%,rgba(2,151,222,.25) 45%,rgba(2,151,222,0) 70%),radial-gradient(95% 85% at 50% 128%,rgba(252,115,77,.95) 0%,rgba(252,115,77,.4) 38%,rgba(252,115,77,0) 68%),#040d13;border:1px solid rgba(130,200,235,.14);box-shadow:var(--tile-shadow);}
+  .trail-banner-wrap{background:radial-gradient(85% 130% at 50% -15%,rgba(2,151,222,.85) 0%,rgba(2,151,222,.25) 45%,rgba(2,151,222,0) 70%),radial-gradient(115% 100% at 50% 124%,rgba(252,115,77,1) 0%,rgba(252,115,77,.55) 42%,rgba(252,115,77,0) 72%),#040d13;border:1px solid rgba(130,200,235,.14);box-shadow:var(--tile-shadow);}
   .trail-banner-brand{color:var(--ink);padding:36px 20px 40px;}
   .trail-banner-badge{display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:50%;
     background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);margin-bottom:14px;}
   .trail-banner-icon{height:24px;margin:0;}
-  .trail-banner-tag{color:rgba(232,240,246,.84);font-weight:500;}
+  .trail-banner-tag{color:rgba(255,255,255,.95);font-weight:500;}
 
   /* balance stats: big bold numbers; the balance itself is a green accent tile (unless it's low) */
   .balance-card{gap:14px;}
@@ -391,7 +391,15 @@
   h2,.order-panel h3,.category-active-label{font-size:24px;line-height:1.15;}
   .lock h2{font-size:30px;}
   .trail-banner-title{font-size:46px;line-height:1.02;}
-  .trail-banner-title em{font-style:italic;}
+  .trail-banner-title em{font-style:italic;color:var(--orange);}
+
+  /* more cantaloupe (kept off the blue fills): the italic headline word, prices, each card's Add button,
+     category icons and text selection. Orange text on the tiles is 6.9:1; dark text on an orange fill 7.4:1. */
+  ::selection{background:var(--orange);color:var(--cream);}
+  .product-card .rsp,.rail-price{color:var(--orange);}
+  .product-card button.add{background:var(--orange);color:var(--accent-ink);}
+  .category-tile .icon{color:var(--orange);}
+  .category-tile:hover .icon{color:var(--orange);}
   .balance-card .value{font-size:32px;line-height:1.1;margin-top:0;}
   .swal2-title{font-size:26px !important;}
   @media (max-width:520px){ .trail-banner-title{font-size:38px;} }
@@ -400,7 +408,8 @@
      bottom edge, so the midnight page has the depth of the reference hero instead of being flat black */
   body::before{content:'';position:fixed;inset:0;z-index:-2;pointer-events:none;
     background:radial-gradient(70% 45% at 50% -8%,rgba(2,151,222,.30) 0%,rgba(2,151,222,0) 70%),
-               radial-gradient(75% 40% at 50% 112%,rgba(252,115,77,.22) 0%,rgba(252,115,77,0) 70%);}
+               radial-gradient(80% 45% at 50% 112%,rgba(252,115,77,.36) 0%,rgba(252,115,77,0) 72%),
+               radial-gradient(40% 30% at 100% 0%,rgba(252,115,77,.14) 0%,rgba(252,115,77,0) 70%);}
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf@3.10.0/notyf.min.css">
 </head>
