@@ -7,35 +7,37 @@
 <meta name="theme-color" content="#0a0a0a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
-  /* Dark monochrome theme (shadcn-style): near-black page, soft rounded cards, grey surfaces, light
-     pill buttons. The old variable names are kept so every rule and inline style that already uses
-     them picks up the new palette: --ink is now the light foreground, --cream the dark background
-     (so "ink background + cream text" buttons come out light-on-dark), --panel the grey surface. */
+  /* Midnight theme: midnight-black page, deep-navy tiles, electric-blue fills, cloudy-white text and a dash of
+     cantaloupe orange. The old variable names are kept so every rule and inline style that already uses
+     them picks up the palette: --ink is the light foreground, --cream the dark background (so "ink
+     background + cream text" buttons come out light-on-dark), --panel the recessed surface.
+     --brand = electric-blue fill (white text on it is 4.8:1); --blue-text = the lighter tint for blue text and
+     icons on dark surfaces (6.9:1); --orange = cantaloupe, kept for small highlights. */
   :root{
     color-scheme:dark;
-    /* A softer sage take on FOM green (#9DC57A; the email templates keep the brand #8BC34A) is the accent on a black page: surfaces carry a
-       faint green tint and the text is a soft green-white instead of stark #fff, so it's easier on the eye */
-    --ink:#e9efe4; --grey:#9da795; --panel:#1c2219; --panel-hover:#252d21; --line:rgba(157,197,122,.11);
-    --card:#11150f; --cream:#0a0a0a; --good:#9DC57A; --bad:#f87171; --brand-green:#9DC57A;
-    --accent-ink:#10190a; --accent-line:rgba(157,197,122,.38);
+    /* surfaces carry a faint blue tint and the text is a cloudy white instead of stark #fff, so it's easier on the eye */
+    --ink:#eaeffa; --grey:#93a0bd; --panel:#131c36; --panel-hover:#1a2547; --line:rgba(130,165,255,.12);
+    --card:#0c1224; --cream:#05070f; --good:#6c9bff; --bad:#f87171; --brand:#1f5eff;
+    --blue-text:#6c9bff; --orange:#ff9e5e;
+    --accent-ink:#f4f7ff; --accent-line:rgba(31,94,255,.5);
     --radius-card:24px; --radius-inner:16px;
     --shadow-rest:none; --shadow-hover:none;
   }
   *{box-sizing:border-box;}
   html{scroll-behavior:smooth;}
-  body{font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--ink);background:var(--cream);margin:0;
-    -webkit-font-smoothing:antialiased;font-feature-settings:'cv11','ss01';}
+  body{font-family:'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--ink);background:var(--cream);margin:0;
+    -webkit-font-smoothing:antialiased;}
   a{color:var(--ink);text-underline-offset:3px;}
-  *{scrollbar-color:#2f3a29 transparent;scrollbar-width:thin;}
+  *{scrollbar-color:#2a3558 transparent;scrollbar-width:thin;}
   @media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto;} *{animation-duration:.001s !important;transition-duration:.001s !important;} }
   /* One shared "arrive" animation — reused everywhere content appears (view switches, search
      results, filtered tiles, cart panel) instead of the old hard display:none/block snap. Browsers
      replay a CSS animation whenever an element goes from display:none to visible, so this needs no
      JS timing logic at all — just attach it to the container that was already being toggled. */
   @keyframes flowIn{ from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:translateY(0);} }
-  header{background:rgba(10,10,10,.85);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:var(--ink);
+  header{background:rgba(5,7,15,.85);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:var(--ink);
     padding:14px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
     border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20;}
   header .brand{font-size:15px;font-weight:600;letter-spacing:-.01em;}
@@ -44,7 +46,7 @@
   header nav button{background:var(--panel);border:none;color:var(--ink);padding:8px 16px;font-size:13px;font-weight:500;
     cursor:pointer;border-radius:999px;font-family:inherit;transition:background .15s ease,color .15s ease;}
   header nav button:hover{background:var(--panel-hover);}
-  header nav button.active{background:var(--brand-green);color:var(--accent-ink);}
+  header nav button.active{background:var(--brand);color:var(--accent-ink);}
   main{max-width:720px;margin:0 auto;padding:36px 20px 80px;}
   .view{display:none;}
   .view.active{display:block;animation:flowIn .4s cubic-bezier(.2,.8,.2,1);}
@@ -54,8 +56,8 @@
     background:var(--panel);color:var(--ink);outline:none;transition:border-color .15s ease,background .15s ease;
   }
   textarea{border-radius:var(--radius-inner);}
-  input::placeholder,textarea::placeholder{color:#8a8a8a;}
-  select:focus,input:focus,textarea:focus{border-color:rgba(157,197,122,.6);}
+  input::placeholder,textarea::placeholder{color:#6e7a99;}
+  select:focus,input:focus,textarea:focus{border-color:rgba(108,155,255,.7);}
   input:disabled{opacity:.5;}
   input[type=file]{padding:8px 10px;}
   input[type=file]::file-selector-button{background:var(--panel-hover);color:var(--ink);border:none;border-radius:999px;
@@ -98,7 +100,7 @@
   .product-card .foot{display:flex;justify-content:space-between;align-items:center;gap:6px 8px;flex-wrap:wrap;}
   .product-card .rsp{font-weight:600;font-size:14px;}
   .product-card.out .rsp{color:var(--bad);font-size:12px;}
-  .product-card button.add{background:var(--brand-green);color:var(--accent-ink);border:none;padding:6px 14px;border-radius:999px;font-size:12px;
+  .product-card button.add{background:var(--brand);color:var(--accent-ink);border:none;padding:6px 14px;border-radius:999px;font-size:12px;
     font-weight:500;font-family:inherit;white-space:nowrap;cursor:pointer;transition:opacity .15s ease;}
   .product-card button.add:hover{opacity:.85;}
   .order-panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-card);padding:24px;margin-top:8px;animation:flowIn .35s ease;}
@@ -107,22 +109,22 @@
   .type-toggle{display:flex;gap:8px;margin-bottom:18px;}
   .type-toggle button{flex:1;padding:10px 12px;border:none;background:var(--panel);color:var(--ink);border-radius:999px;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;transition:background .15s ease,color .15s ease;}
   .type-toggle button:hover{background:var(--panel-hover);}
-  .type-toggle button.active{background:var(--brand-green);color:var(--accent-ink);}
+  .type-toggle button.active{background:var(--brand);color:var(--accent-ink);}
   .amount-row{display:flex;justify-content:space-between;font-size:14px;padding:6px 0;color:var(--grey);}
   .amount-row span:last-child{color:var(--ink);}
   .amount-row.total{font-weight:600;color:var(--ink);border-top:1px solid var(--line);margin-top:8px;padding-top:12px;}
-  button.primary{background:var(--brand-green);color:var(--accent-ink);border:none;padding:12px;width:100%;border-radius:999px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;margin-top:16px;transition:opacity .15s ease;}
+  button.primary{background:var(--brand);color:var(--accent-ink);border:none;padding:12px;width:100%;border-radius:999px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;margin-top:16px;transition:opacity .15s ease;}
   button.primary:hover{opacity:.88;}
   button.primary:disabled{opacity:.35;cursor:not-allowed;}
   button.secondary{background:var(--panel);color:var(--ink);border:1px solid transparent;padding:8px 18px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s ease;}
   button.secondary:hover{background:var(--panel-hover);}
-  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--brand-green);color:var(--accent-ink);padding:12px 20px;border-radius:999px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:opacity .25s;z-index:50;max-width:90%;text-align:center;}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--brand);color:var(--accent-ink);padding:12px 20px;border-radius:999px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:opacity .25s;z-index:50;max-width:90%;text-align:center;}
   .toast.show{opacity:1;}
   .toast.err{background:var(--bad);color:#1a0505;}
   h2{font-size:17px;font-weight:600;letter-spacing:-.01em;color:var(--ink);margin:0 0 16px;}
   table.admin{width:100%;border-collapse:collapse;font-size:13px;}
   table.admin th,table.admin td{text-align:left;padding:10px;border-bottom:1px solid var(--line);}
-  table.admin th{font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#b3cf9a;}
+  table.admin th{font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--blue-text);}
   table.admin input{padding:6px 12px;}
   .item-count{font-weight:600;margin-bottom:4px;}
   .item-list{display:flex;flex-direction:column;gap:3px;}
@@ -135,9 +137,9 @@
   .admin-section summary::-webkit-details-marker{display:none;}
   .admin-section summary::after{content:'';width:8px;height:8px;border-right:1.5px solid var(--grey);border-bottom:1.5px solid var(--grey);
     transform:rotate(45deg) translate(-2px,-2px);transition:transform .2s ease;}
-  .admin-section[open] summary::after{transform:rotate(-135deg) translate(-2px,-2px);border-color:var(--brand-green);}
-  .admin-section[open] summary{color:var(--brand-green);}
-  .admin-section summary:hover{background:rgba(157,197,122,.05);}
+  .admin-section[open] summary::after{transform:rotate(-135deg) translate(-2px,-2px);border-color:var(--blue-text);}
+  .admin-section[open] summary{color:var(--blue-text);}
+  .admin-section summary:hover{background:rgba(108,155,255,.06);}
   .admin-section .admin-section-body{padding:0 24px 24px;overflow-x:auto;}
   /* the admin tables need more room than the 720px order flow — widen the page while Admin is open
      so every column (incl. Cancel / Delete) fits; narrower screens fall back to sideways scrolling */
@@ -154,7 +156,7 @@
   .spend-bar-row{margin-bottom:12px;}
   .spend-bar-label{display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;}
   .spend-bar-track{background:var(--panel);border-radius:999px;height:8px;overflow:hidden;}
-  .spend-bar-fill{height:100%;border-radius:999px;background:var(--brand-green);}
+  .spend-bar-fill{height:100%;border-radius:999px;background:var(--brand);}
   .row-flex{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
   .row-flex .field{flex:1;min-width:140px;margin-bottom:0;}
   .lock{max-width:360px;margin:72px auto;text-align:center;}
@@ -163,12 +165,12 @@
   .login-card img{filter:brightness(0) invert(1);}
 
   .trail-banner-wrap{position:relative;margin-bottom:28px;border-radius:var(--radius-card);overflow:hidden;
-    background:radial-gradient(120% 150% at 50% 0%,rgba(157,197,122,.32) 0%,#17220f 45%,var(--card) 80%);border:1px solid var(--accent-line);}
+    background:radial-gradient(120% 150% at 50% 0%,rgba(31,94,255,.38) 0%,#0b1a4a 45%,var(--card) 80%);border:1px solid var(--accent-line);}
   .trail-banner-brand{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
     color:var(--ink);padding:36px 20px;}
   .trail-banner-icon{height:30px;margin-bottom:14px;filter:brightness(0) invert(1);}
   .trail-banner-title{font-size:30px;font-weight:700;letter-spacing:-.03em;line-height:1.1;}
-  .trail-banner-tag{font-size:14px;color:#c2dbab;margin-top:8px;}
+  .trail-banner-tag{font-size:14px;color:#c9d8ff;margin-top:8px;}
 
   /* Faint, fixed, never interactive — a background texture behind the whole app, not a UI element */
   #pageWatermark{position:fixed;bottom:-70px;right:-70px;width:420px;height:420px;opacity:.025;
@@ -179,13 +181,13 @@
   .category-tile{background:var(--card);border:1px solid var(--line);border-radius:20px;
     padding:18px 14px;text-align:center;cursor:pointer;
     transition:border-color .2s ease,background .2s ease;}
-  .category-tile:hover{border-color:var(--accent-line);background:#161c13;}
-  .category-tile .icon{width:64px;height:64px;margin:0 auto 8px;color:var(--brand-green);}
+  .category-tile:hover{border-color:var(--accent-line);background:#101a36;}
+  .category-tile .icon{width:64px;height:64px;margin:0 auto 8px;color:var(--blue-text);}
   .category-tile .icon svg{width:100%;height:100%;}
   /* the add-to-cart runner's legs are drawn in the old dark ink colour, invisible on a dark card —
      CSS beats SVG presentation attributes, so lift them to a mid grey here */
-  .add-runner [fill="#3A3F2E"]{fill:#737373;}
-  .add-runner circle[fill="#3A3F2E"], .add-runner rect[fill="#3A3F2E"]{fill:#d4d4d4;}
+  .add-runner [fill="#3A3F2E"]{fill:#ffb98a;}
+  .add-runner circle[fill="#3A3F2E"], .add-runner rect[fill="#3A3F2E"]{fill:var(--orange);}
   .category-tile .cat-name{font-size:14px;font-weight:600;color:var(--ink);}
   .category-tile .cat-count{font-size:12px;color:var(--grey);margin-top:2px;}
   .category-active-bar{display:none;justify-content:space-between;align-items:center;margin-bottom:16px;animation:flowIn .35s ease;}
@@ -219,7 +221,7 @@
   #quoteSidebar .q{font-size:15px;font-weight:500;letter-spacing:-.01em;
     line-height:1.5;color:var(--grey);opacity:0;transition:opacity 1s ease;}
   #quoteSidebar .q.show{opacity:1;}
-  #quoteSidebar .attr{font-size:12px;font-weight:500;color:#6b6b6b;margin-top:10px;display:block;}
+  #quoteSidebar .attr{font-size:12px;font-weight:500;color:#5d6a8a;margin-top:10px;display:block;}
 
   /* Allowance meter — full-width row under the three balance stats. The lighter "pending" segment
      previews what the current cart would use, so staff see the effect before they confirm. */
@@ -227,8 +229,8 @@
   .allowance-meter .meter-text{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--grey);margin-bottom:8px;}
   .allowance-meter .meter-text strong{color:var(--ink);font-weight:600;}
   .allowance-meter .meter-track{display:flex;background:var(--panel);border-radius:999px;height:8px;overflow:hidden;}
-  .allowance-meter .meter-used{background:var(--brand-green);transition:width .4s ease;}
-  .allowance-meter .meter-pending{background:repeating-linear-gradient(45deg,#6b6b6b 0 4px,#525252 4px 8px);transition:width .4s ease;}
+  .allowance-meter .meter-used{background:var(--brand);transition:width .4s ease;}
+  .allowance-meter .meter-pending{background:repeating-linear-gradient(45deg,var(--orange) 0 4px,#e8843f 4px 8px);transition:width .4s ease;}
   .allowance-meter.over .meter-pending{background:var(--bad);}
   .allowance-meter.over .meter-text .meter-note{color:var(--bad);}
 
@@ -236,10 +238,10 @@
      password-manager autofill all still work; the on-screen keys just write into that same input. */
   .pin-pad{display:flex;flex-direction:column;align-items:center;gap:16px;}
   .pin-dots-wrap{position:relative;padding:10px 18px;border-radius:999px;background:var(--panel);border:1px solid transparent;transition:border-color .15s ease;}
-  .pin-dots-wrap:focus-within{border-color:rgba(157,197,122,.6);}
+  .pin-dots-wrap:focus-within{border-color:rgba(108,155,255,.7);}
   .pin-dots{display:flex;gap:14px;}
   .pin-dots span{width:12px;height:12px;border-radius:50%;border:1.5px solid var(--grey);transition:background .12s ease,border-color .12s ease,transform .12s ease;}
-  .pin-dots span.filled{background:var(--brand-green);border-color:var(--brand-green);transform:scale(1.1);}
+  .pin-dots span.filled{background:var(--brand);border-color:var(--brand);transform:scale(1.1);}
   .pin-pad .pin-input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0;}
   .pin-keys{display:grid;grid-template-columns:repeat(3,64px);gap:10px;}
   .pin-keys button{height:52px;border:none;border-radius:999px;background:var(--panel);color:var(--ink);font-family:inherit;
@@ -255,13 +257,13 @@
   /* Notyf toasts restyled to match the old pill toast */
   .notyf__toast.fom-toast{border-radius:999px;padding:0 6px;box-shadow:0 8px 30px rgba(0,0,0,.4);max-width:90vw;}
   .notyf__toast.fom-toast .notyf__wrapper{padding:12px 14px;}
-  .notyf__toast.fom-toast .notyf__message{font-family:'Inter',system-ui,sans-serif;font-size:13px;font-weight:500;color:var(--cream);}
+  .notyf__toast.fom-toast .notyf__message{font-family:'Manrope',system-ui,sans-serif;font-size:13px;font-weight:500;color:var(--cream);}
   .notyf__toast.fom-toast.err .notyf__message{color:#1a0505;}
   .notyf__toast.fom-toast .notyf__ripple{display:none;}
 
   /* SweetAlert2 confirm dialogs in the app's dark card style */
   .swal2-popup.fom-swal{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:var(--radius-card);
-    font-family:'Inter',system-ui,sans-serif;padding:28px 24px 24px;}
+    font-family:'Manrope',system-ui,sans-serif;padding:28px 24px 24px;}
   .fom-swal .swal2-title{font-size:18px;font-weight:600;letter-spacing:-.01em;color:var(--ink);padding:0;}
   .fom-swal .swal2-html-container{font-size:14px;line-height:1.55;color:var(--grey);white-space:pre-line;margin:12px 0 0;padding:0;}
   .fom-swal .swal2-actions{gap:10px;margin-top:22px;width:100%;flex-wrap:nowrap;}
@@ -270,25 +272,25 @@
   .fom-swal .swal2-actions button.primary.danger{background:var(--bad);color:#1a0505;}
   .swal2-container.swal2-backdrop-show{background:rgba(0,0,0,.7);}
 
-  /* ---- Tile look (2026-10-09): borderless charcoal tiles on the black page, bigger radii, black pill
-     controls inside tiles, bold numbers, and solid FOM-green "accent" tiles (banner, balance, hovered
-     category) — modelled on a dashboard-widget reference, kept in the existing green palette. Everything
-     in this block overrides rules above, so deleting it restores the previous look. ---- */
-  :root{ --card:#1e231b; --radius-card:28px; --radius-inner:22px; --line:rgba(255,255,255,.04);
+  /* ---- Tile look (2026-10-09): borderless navy tiles on the midnight page, bigger radii, recessed pill
+     controls inside tiles, bold numbers, and solid electric-blue "accent" tiles (banner, balance, hovered
+     category) — modelled on a dashboard-widget reference. Everything in this block overrides rules
+     above, so deleting it restores the base look. ---- */
+  :root{ --card:#0d1428; --radius-card:28px; --radius-inner:22px; --line:rgba(140,170,255,.07);
     --tile-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 12px 32px rgba(0,0,0,.35); }
   /* controls that sit inside a tile go near-black, so they read as recessed pills like the reference */
   .login-card,.order-panel,.admin-section,.allowance-meter,.product-card,.results,.swal2-popup.fom-swal,.balance-card .stat{
-    --panel:#121510; --panel-hover:#191d16; }
+    --panel:#070b17; --panel-hover:#0c1226; }
   .login-card,.order-panel,.admin-section,.allowance-meter,.product-card,.results,.balance-card .stat,.category-tile,.swal2-popup.fom-swal{
     border-color:transparent; box-shadow:var(--tile-shadow); }
 
   /* banner = the solid accent tile */
-  .trail-banner-wrap{background:linear-gradient(135deg,#b4d496 0%,#9DC57A 45%,#7fa65d 100%);border:none;box-shadow:var(--tile-shadow);}
+  .trail-banner-wrap{background:radial-gradient(90% 150% at 100% 0%,rgba(255,158,94,.5) 0%,rgba(255,158,94,0) 55%),linear-gradient(135deg,#2a68ff 0%,#1f5eff 45%,#1649d8 100%);border:none;box-shadow:var(--tile-shadow);}
   .trail-banner-brand{color:var(--accent-ink);padding:32px 20px;}
   .trail-banner-badge{display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:50%;
-    background:var(--accent-ink);margin-bottom:14px;}
+    background:var(--cream);margin-bottom:14px;}
   .trail-banner-icon{height:24px;margin:0;}
-  .trail-banner-tag{color:rgba(16,25,10,.72);font-weight:500;}
+  .trail-banner-tag{color:rgba(244,247,255,.86);font-weight:500;}
 
   /* balance stats: big bold numbers; the balance itself is a green accent tile (unless it's low) */
   .balance-card{gap:14px;}
@@ -296,8 +298,8 @@
   .balance-card .label{text-transform:none;letter-spacing:0;font-size:12px;font-weight:500;}
   .balance-card .value{font-size:24px;font-weight:700;margin-top:2px;}
   .balance-card .stat:hover{border-color:transparent;}
-  #balBalanceStat:not(.low){background:var(--brand-green);}
-  #balBalanceStat:not(.low) .label{color:rgba(16,25,10,.7);}
+  #balBalanceStat:not(.low){background:var(--brand);}
+  #balBalanceStat:not(.low) .label{color:rgba(244,247,255,.78);}
   #balBalanceStat:not(.low) .value{color:var(--accent-ink);}
   .allowance-meter{border-radius:var(--radius-inner);padding:16px 20px;}
   .allowance-meter .meter-track,.spend-bar-track{height:10px;}
@@ -305,13 +307,13 @@
   /* category / department tiles: charcoal tile, icon in a dark round badge, whole tile turns green on hover */
   .category-grid{gap:14px;}
   .category-tile{border-radius:26px;padding:20px 14px 18px;transition:background .2s ease,transform .2s ease;}
-  .category-tile .icon{width:76px;height:76px;padding:19px;border-radius:50%;background:#121510;margin:0 auto 12px;}
+  .category-tile .icon{width:76px;height:76px;padding:19px;border-radius:50%;background:#070b17;margin:0 auto 12px;}
   .category-tile .icon svg{overflow:visible;transition:transform .35s cubic-bezier(.3,1.6,.5,1);}
   .category-tile:hover .icon svg{transform:scale(1.14) rotate(-8deg);}
   .category-tile:hover .icon .duo{fill-opacity:.32;}
-  .category-tile:hover{background:var(--brand-green);border-color:transparent;transform:translateY(-2px);}
+  .category-tile:hover{background:var(--brand);border-color:transparent;transform:translateY(-2px);}
   .category-tile:hover .cat-name{color:var(--accent-ink);}
-  .category-tile:hover .cat-count{color:rgba(16,25,10,.7);}
+  .category-tile:hover .cat-count{color:rgba(244,247,255,.78);}
 
   /* product cards, admin sections, panels */
   /* product grid: no inner scroll box (it clipped the tiles' edges and shadows mid-row and made the
@@ -323,7 +325,7 @@
   .product-card{border-radius:26px;display:flex;flex-direction:column;transition:transform .2s ease,box-shadow .2s ease;}
   .product-card:not(.out):hover{border-color:transparent;transform:translateY(-3px);
     box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px rgba(0,0,0,.45);}
-  .product-card .photo{margin:8px 8px 0;width:auto;aspect-ratio:4/5;border-radius:20px;background:#121510;}
+  .product-card .photo{margin:8px 8px 0;width:auto;aspect-ratio:4/5;border-radius:20px;background:#070b17;}
   .product-card .photo img{object-fit:cover;transition:transform .35s ease;}
   .product-card:not(.out):hover .photo img{transform:scale(1.05);}
   .product-card .photo svg{width:52px;height:52px;}
@@ -331,7 +333,7 @@
   .product-card .info{padding:14px 16px 16px;display:flex;flex-direction:column;flex:1;}
   .product-card .name{font-size:14px;line-height:1.35;min-height:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
   .product-card .meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:8px 0 14px;font-size:11px;}
-  .product-card .stock{background:#121510;color:var(--brand-green);border-radius:999px;padding:3px 9px;font-weight:600;white-space:nowrap;}
+  .product-card .stock{background:#070b17;color:var(--blue-text);border-radius:999px;padding:3px 9px;font-weight:600;white-space:nowrap;}
   .product-card.out .stock{color:var(--bad);}
   .product-card .foot{margin-top:auto;flex-wrap:nowrap;}
   .product-card .rsp{font-size:16px;font-weight:700;white-space:nowrap;}
@@ -348,7 +350,7 @@
   .admin-section .admin-section-body{padding:0 26px 26px;}
   .order-panel{padding:26px;}
   header nav button{background:var(--card);}
-  header nav button:hover{background:#262c22;}
+  header nav button:hover{background:#1a2547;}
   /* ---- "On the rail": photo rail on the opening dashboard ----
      Featured items hang from a metal rail like a shop rail. Native horizontal scroll (touch/trackpad)
      plus mouse drag; the hangers swing with scroll speed (see initRail). Photos are the website's,
@@ -364,10 +366,10 @@
   .rail.dragging{cursor:grabbing;}
   .rail-track{position:relative;display:flex;align-items:flex-start;gap:20px;width:max-content;padding:0 28px;}
   .rail-bar{position:absolute;left:0;right:0;top:5px;height:3px;border-radius:3px;pointer-events:none;
-    background:linear-gradient(180deg,#59634f,#b3bdaa 55%,#3d4538);box-shadow:0 3px 7px rgba(0,0,0,.5);}
+    background:linear-gradient(180deg,#3b4768,#b8c4de 55%,#27304a);box-shadow:0 3px 7px rgba(0,0,0,.5);}
   .rail-item{position:relative;flex:none;width:128px;background:none;border:none;padding:0;margin:0;color:inherit;font:inherit;text-align:center;cursor:pointer;
     transform-origin:50% 5px;rotate:calc(var(--sway,0) * var(--k,1) * 1deg);}
-  .rail-item:focus-visible{outline:2px solid var(--brand-green);outline-offset:4px;border-radius:14px;}
+  .rail-item:focus-visible{outline:2px solid var(--blue-text);outline-offset:4px;border-radius:14px;}
   .rail-hanger{display:block;width:88px;height:32px;margin:0 auto -15px;position:relative;z-index:2;pointer-events:none;overflow:visible;}
   .rail-photo{position:relative;width:128px;aspect-ratio:4/5;border-radius:14px;overflow:hidden;background:var(--panel);
     box-shadow:0 0 0 1px var(--line),0 16px 20px -10px rgba(0,0,0,.7);transition:transform .25s ease;}
@@ -376,9 +378,14 @@
   .rail-item:active .rail-photo{transform:scale(.97);}
   .rail-name{margin-top:10px;font-size:12px;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
   .rail-price{margin-top:3px;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;}
-  .rail-price i{font-style:normal;width:18px;height:18px;border-radius:50%;background:var(--brand-green);color:var(--accent-ink);font-size:13px;line-height:18px;font-weight:700;}
+  .rail-price i{font-style:normal;width:18px;height:18px;border-radius:50%;background:var(--orange);color:var(--cream);font-size:13px;line-height:18px;font-weight:700;}
   .rail-price i.sizes{width:auto;height:auto;padding:2px 8px;border-radius:999px;font-size:10px;line-height:1.5;letter-spacing:.02em;}
   @media (max-width:520px){ .rail-item,.rail-photo{width:112px;} .rail-hanger{width:78px;} .rail-track{gap:16px;} }
+
+  /* type: Manrope for text, Sora for headings, big numbers and prices */
+  :root{ --font-display:'Sora','Manrope',system-ui,sans-serif; }
+  h2,.order-panel h3,.trail-banner-title,.balance-card .value,.category-active-label,header .brand,.admin-section summary,
+  .product-card .rsp,.amount-row.total,.rail-price,.swal2-title{font-family:var(--font-display);}
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf@3.10.0/notyf.min.css">
 </head>
@@ -1351,8 +1358,8 @@ function onSearch(){
 // With fewer than RAIL_MIN of those (e.g. before the first photo import) the rail just stays hidden.
 const RAIL_SIZE = 12, RAIL_MIN = 3;
 const RAIL_HANGER = '<svg class="rail-hanger" viewBox="0 0 88 32" fill="none" stroke-linecap="round" stroke-linejoin="round">'+
-  '<path d="M44 16V10.5C44 3 53 3 53 9" stroke="#9da795" stroke-width="1.8"/>'+
-  '<path d="M4 31L44 16L84 31" stroke="#b08a5b" stroke-width="2.8"/></svg>';
+  '<path d="M44 16V10.5C44 3 53 3 53 9" stroke="#9fb0d4" stroke-width="1.8"/>'+
+  '<path d="M4 31L44 16L84 31" stroke="#ff9e5e" stroke-width="2.8"/></svg>';
 let railHasItems = false, railInited = false, railDragMoved = false;
 let railPhotoCount = {}; // photo -> how many SKUs share it (every size of a shoe or tee is its own SKU)
 
